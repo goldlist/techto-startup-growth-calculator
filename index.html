@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Default Alive? — TechTO</title>
+  <title>Startup Growth Calculator | TechTO</title>
   <link href="favicon.png" rel="shortcut icon" type="image/x-icon">
   <link href="webclip.png" rel="apple-touch-icon">
   <!-- Open Graph -->
@@ -332,16 +332,6 @@
       const arcStartX = p0X + protRad, arcStartY = p0Y;
       const arcEndX = p0X + Math.cos(maxAngle) * protRad;
       const arcEndY = p0Y + Math.sin(maxAngle) * protRad;
-
-      // Capital needed — integral of max(0, exp-rev) from 0 to breakeven
-      let capitalNeeded = 0;
-      if (breakevenMonth !== null && breakevenMonth > 0) {
-        const steps = 200;
-        for (let i = 0; i < steps; i++) {
-          const mo = (breakevenMonth / steps) * (i + 0.5);
-          capitalNeeded += Math.max(0, exp0 - revAtMonth(mo)) * (breakevenMonth / steps);
-        }
-      }
 
       // Y-axis flow values — log-scale ticks
       const yFlows = genFlowTicks(dynMinFlow, dynMaxFlow);
