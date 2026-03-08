@@ -32,11 +32,12 @@
     .hero-gradient {
       z-index: 0;
       background-image: linear-gradient(180deg, #ebff52, white);
-      height: 130px;
+      height: 80px;
       position: fixed; top: 0; left: 0; right: 0;
       pointer-events: none;
     }
-    #root { padding-top: 150px; padding-bottom: 140px; }
+    #root { padding-top: 80px; padding-bottom: 140px; }
+    .exact-numbers-wrap { padding-left: 16px; }
     @media (min-width: 640px) {
       .exact-numbers-wrap { padding-left: calc(77 / 900 * 100%); }
     }
@@ -594,8 +595,8 @@
             const x = convMonthToX(yr * 12);
             return (
               <g key={yr}>
-                <line x1={x} y1={plotB} x2={x} y2={plotB + 7} stroke="#888" strokeWidth="1" />
-                <text x={x} y={plotB + 10} textAnchor="middle" fontSize={fsXLabel} fontFamily={font} fill="#888" dominantBaseline="top">
+                <line x1={x} y1={plotB} x2={x} y2={plotB + 5} stroke="#888" strokeWidth="1" />
+                <text x={x} y={plotB + 9} textAnchor="middle" fontSize={fsXLabel} fontFamily={font} fill="#888" dominantBaseline="top">
                   {yr === 0 ? 'today' : yr === 3 ? '3 years' : `year ${yr}`}
                 </text>
               </g>
@@ -604,7 +605,7 @@
 
           {yFlows.map(flow => {
             const y = convFlowToY(flow);
-            if (y < plotT || y > plotB) return null;
+            if (y < plotT + 5 || y > plotB - 14) return null;
             return (
               <g key={flow}>
                 <line x1={plotL} y1={y} x2={plotL - 10} y2={y} stroke="#888" strokeWidth="1" />
@@ -735,9 +736,9 @@
 
       return (
         <div style={{ backgroundColor: '#fff', fontFamily: 'Artex, system-ui, sans-serif' }}>
-          <main className="max-w-5xl mx-auto px-4 py-3">
+          <main className="max-w-5xl mx-auto pt-2 pb-3">
 
-            <div className="hidden md:block" style={{ marginBottom: '16px' }}>
+            <div className="hidden md:block px-4" style={{ marginBottom: '12px' }}>
               <h1 style={{ fontFamily: 'Feature Display, serif', fontSize: '28px', fontWeight: 'normal', margin: '0 0 4px 0', lineHeight: 1.1 }}>
                 Startup Growth Calculator
               </h1>
@@ -812,8 +813,9 @@
               })()}
             </div>
 
+            <div className="px-4">
             {/* Milestones Panel */}
-            <div style={{ marginBottom: '20px', marginTop: '40px' }}>
+            <div style={{ marginBottom: '20px', marginTop: '16px' }}>
               <p style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 At your current growth rate, here's when you'll hit the milestones that matter.
               </p>
@@ -921,6 +923,7 @@
                 Reset
               </a>
             </div>
+            </div>{/* end px-4 wrapper */}
 
           </main>
 
