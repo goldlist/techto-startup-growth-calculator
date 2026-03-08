@@ -134,58 +134,6 @@
       return { lMin: lMin - pad, lMax: lMax + pad };
     }
 
-    // ── Label placement helpers ──────────────────────────────────────────────────
-    function rectOverlap(a, b, pad) {
-      pad = (pad === undefined) ? 3 : pad;
-      return !(a.x + a.w + pad < b.x || b.x + b.w + pad < a.x ||
-               a.y + a.h + pad < b.y || b.y + b.h + pad < a.y);
-    }
-    function lblBox(tx, ty, text, fs, anchor) {
-      const w = text.length * fs * 0.58 + 14;
-      const h = fs * 1.5;
-      const x = anchor === 'end' ? tx - w + 5 : anchor === 'middle' ? tx - w / 2 : tx - 4;
-      return { x, y: ty - h * 0.78, w, h };
-    }
-    // Greedy placement: tries preferred position then 10 nudge candidates; clamps to chart
-    function placeLabel(px, py, text, fs, anchor, placed, pL, pR, pT, pB) {
-      const nudges = [[0,0],[0,-fs*2],[0,fs*2],[0,-fs*3.8],[0,fs*3.8],
-                      [fs*4,0],[-fs*4,0],[fs*4,-fs*2],[-fs*4,-fs*2],[fs*4,fs*2],[-fs*4,fs*2]];
-      for (const [dx, dy] of nudges) {
-        let tx = px + dx, ty = py + dy;
-        let bb = lblBox(tx, ty, text, fs, anchor);
-        if (bb.x < pL + 2) { tx += pL + 2 - bb.x; bb = lblBox(tx, ty, text, fs, anchor); }
-        if (bb.x + bb.w > pR - 2) { tx -= bb.x + bb.w - (pR - 2); bb = lblBox(tx, ty, text, fs, anchor); }
-        if (bb.y < pT + 2) { ty += pT + 2 - bb.y; bb = lblBox(tx, ty, text, fs, anchor); }
-        if (bb.y + bb.h > pB - 2) { ty -= bb.y + bb.h - (pB - 2); bb = lblBox(tx, ty, text, fs, anchor); }
-        if (placed.every(p => !rectOverlap(p, bb, 3))) {
-          placed.push(bb);
-          return { x: tx, y: ty, box: bb };
-        }
-      }
-      // Fallback: clamp and accept overlap
-      const fb = lblBox(px, py, text, fs, anchor);
-      fb.x = Math.max(pL + 2, Math.min(pR - fb.w - 2, fb.x));
-      fb.y = Math.max(pT + 2, Math.min(pB - fb.h - 2, fb.y));
-      placed.push(fb);
-      return { x: px, y: py, box: fb };
-    }
-    // Renders text with a semi-transparent white background pill
-    function LabelBg({ x, y, text, fontSize, fontFamily, fontWeight = 'normal', fill = '#000', anchor = 'start', transform }) {
-      const w = text.length * fontSize * 0.58 + 14;
-      const h = fontSize * 1.5;
-      const rx = anchor === 'end' ? x - w + 5 : anchor === 'middle' ? x - w / 2 : x - 4;
-      const ry = y - h * 0.78;
-      return (
-        <g style={{ pointerEvents: 'none' }} transform={transform}>
-          <rect x={rx} y={ry} width={w} height={h} fill="rgba(255,255,255,0.75)" rx="2" />
-          <text x={x} y={y} fontSize={fontSize} fontFamily={fontFamily}
-            fontWeight={fontWeight} fill={fill} textAnchor={anchor} dominantBaseline="middle">
-            {text}
-          </text>
-        </g>
-      );
-    }
-
     // ─── Faithful port of Trevor Blackwell's GrowthView.js ───────────────────────
     // Source: https://gitlab.com/tlb/startuptools
     // Trevor's chart uses HTML5 Canvas; this is an SVG port of his exact logic.
@@ -411,76 +359,6 @@
       const ipoWithin = ipoMonth !== null && ipoMonth > 0 && ipoMonth <= nMonths;
       const ipoX = ipoWithin ? convMonthToX(ipoMonth) : null;
 
-      // ── Per-render label placement engine ────────────────────────────────────────
-      const placed = []; // accumulates placed bboxes; checked on every render
-      // Seed with drag handle exclusion zones so labels don't land on handles
-      const hp = hitRad + 4;
-      placed.push({ x: p0X - hp, y: p0Y - hp, w: hp * 2, h: hp * 2 });
-      placed.push({ x: p0X - hp, y: expY0 - hp, w: hp * 2, h: hp * 2 });
-      placed.push({ x: pmX - hp, y: pmY - hp, w: hp * 2, h: hp * 2 });
-
-      const lineAngleDeg = Math.atan2(p1Y - p0Y, p1X - p0X) * 180 / Math.PI;
-      const pct = Math.round(g * 100);
-      const revText = `${fmtMoney(rev0)} revenue per month`;
-      const growText = isMobile ? `${pct}% / mo` : `growing ${pct}% monthly`;
-      const expText = `${fmtMoney(exp0)} expenses per month${expGrowth > 0 ? ` +${Math.round(expGrowth * 100)}%/mo` : ''}`;
-      const capText = `${fmtMoney(capitalNeeded)} capital needed`;
-
-      // Rotated label pair: check overlap in rotated x-space before rendering
-      const revTextEndX = p0X + dragRad + 8 + revText.length * fsAnnot * 0.58;
-      const growTextStartX = p0X + protRad + dragRad + 8;
-      const showRevLabel = !tightLines && revTextEndX < growTextStartX - 6;
-
-      // Register tightLines legend box as obstacle so other labels dodge it
-      if (tightLines) {
-        const tlLineCount = (rev0 < exp0 && breakevenMonth !== null && breakevenMonth > 0) ? 4 : 3;
-        const tlLineH = fsAnnot + 7;
-        const tlLongest = Math.max(revText.length, expText.length, growText.length);
-        placed.push({ x: plotL + 10, y: plotT + 10,
-          w: tlLongest * fsAnnot * 0.54 + 28, h: tlLineCount * tlLineH + 14 });
-      }
-
-      // Place non-rotated labels with collision avoidance
-      let expPos = null, capPos = null;
-      if (!tightLines) {
-        expPos = placeLabel(p0X + 15, expY0 - 7, expText, fsAnnot, 'start', placed, plotL, plotR, plotT, plotB);
-        if (rev0 < exp0 && breakevenMonth !== null && breakevenMonth > 0) {
-          capPos = placeLabel(lbX, lbY, capText, fsCapLabel, 'start', placed, plotL, plotR, plotT, plotB);
-        }
-      }
-
-      let bkPos = null, bkText = '', bkAnchor = 'start';
-      if (breakevenMonth !== null && breakevenMonth > 0) {
-        bkText = `Profitable at ${fmtTime(breakevenMonth)}`;
-        if (bx) {
-          const flipL = bx + 5 + bkText.length * charW > plotR;
-          bkAnchor = flipL ? 'end' : 'start';
-          bkPos = placeLabel(flipL ? bx - 3 : bx + 3, convFlowToY(exp0) + 22,
-            bkText, fsAnnot, bkAnchor, placed, plotL, plotR, plotT, plotB);
-        } else {
-          bkAnchor = 'end';
-          bkPos = placeLabel(plotR - 25, Math.min(convFlowToY(exp0), plotB - 10),
-            bkText, fsAnnot, 'end', placed, plotL, plotR, plotT, plotB);
-        }
-      }
-
-      let ipoPos = null, ipoAnchor = 'end', ipoAnnotText = '';
-      let ipoLineX = null, ipoLineY = null, ipoP1lx = null;
-      if (ipoMonth !== null && ipoMonth > 0) {
-        ipoAnnotText = `$100M run rate at ${fmtTime(ipoMonth)}`;
-        const ipoAboveScale = ipoFlow > dynMaxFlow;
-        ipoLineX = ipoX ? ipoX : plotR;
-        ipoLineY = ipoAboveScale ? plotT + 4 : (ipoX ? convFlowToY(ipoFlow) : Math.min(convFlowToY(revAtMonth(nMonths)), plotB - 30));
-        ipoP1lx = Math.min(plotR - 20, ipoLineX - 20);
-        if (ipoAboveScale && ipoX) {
-          ipoAnchor = 'start';
-          ipoPos = placeLabel(ipoLineX + 8, plotT + 14, ipoAnnotText, fsAnnot, 'start', placed, plotL, plotR, plotT, plotB);
-        } else {
-          ipoAnchor = 'end';
-          ipoPos = placeLabel(ipoP1lx - 5, ipoLineY, ipoAnnotText, fsAnnot, 'end', placed, plotL, plotR, plotT, plotB);
-        }
-      }
-
       return (
         <div ref={containerRef}>
         <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" style={{ touchAction: 'none' }}>
@@ -514,11 +392,22 @@
             return <path clipPath="url(#chartClip)" d={d} fill="url(#capGrad)" />;
           })()}
 
-          {/* ── Capital needed label ── */}
-          {capPos && (
-            <LabelBg x={capPos.x} y={capPos.y} text={capText}
-              fontSize={fsCapLabel} fontFamily={font} fontWeight="bold" />
-          )}
+          {/* ── Capital needed label (wide-gap case only) ── */}
+          {!tightLines && rev0 < exp0 && breakevenMonth !== null && breakevenMonth > 0 && (() => {
+            const label = `${fmtMoney(capitalNeeded)} capital needed`;
+            const textW = label.length * fsCapLabel * 0.58 + 8;
+            const textH = fsCapLabel * 1.4;
+            return (
+              <g style={{ pointerEvents: 'none' }}>
+                <rect x={lbX - 4} y={lbY - textH / 2} width={textW} height={textH}
+                  fill="white" fillOpacity="0.85" rx="3" />
+                <text x={lbX} y={lbY} fontSize={fsCapLabel} fontFamily={font} fontWeight="bold"
+                  fill="#000" dominantBaseline="middle">
+                  {label}
+                </text>
+              </g>
+            );
+          })()}
 
           {/* ── Costs-exceed-revenue zone: profitable now but expenses growing faster ── */}
           {rev0 > exp0 && expGrowth > g && (() => {
@@ -554,11 +443,14 @@
               <g>
                 <path clipPath="url(#chartClip)" d={d} fill="url(#capGrad)" />
                 <line x1={cX} y1={cY} x2={cX} y2={lineEndY} stroke="#888" strokeWidth="1" />
-                <LabelBg x={flipLeft ? cX - 3 : cX + 3} y={lineEndY + fsAnnot * 0.75}
-                  text={crossLabel} fontSize={fsAnnot} fontFamily={font}
-                  anchor={flipLeft ? 'end' : 'start'} />
-                <LabelBg x={midX} y={midY} text="costs outrun growth"
-                  fontSize={fsCapLabel} fontFamily={font} fontWeight="bold" anchor="middle" />
+                <text x={flipLeft ? cX - 3 : cX + 3} y={lineEndY + 2}
+                  textAnchor={flipLeft ? 'end' : 'start'} fontSize={fsAnnot} fontFamily={font} fill="#000" dominantBaseline="top">
+                  {crossLabel}
+                </text>
+                <text x={midX} y={midY}
+                  textAnchor="middle" fontSize={fsCapLabel} fontFamily={font} fontWeight="bold" fill="#000" dominantBaseline="middle">
+                  costs outrun growth
+                </text>
               </g>
             );
           })()}
@@ -580,22 +472,37 @@
             return <path d={d} stroke="#ff5252" strokeWidth="3" fill="none" clipPath="url(#chartClip)" />;
           })()}
 
-          {/* ── Revenue start label — shown only when it fits before growth label in rotated x-space ── */}
-          {showRevLabel && (
-            <LabelBg x={p0X + dragRad + 8} y={p0Y - 7} text={revText}
-              fontSize={fsAnnot} fontFamily={font} fontWeight="bold"
-              transform={`rotate(${lineAngleDeg.toFixed(1)}, ${p0X.toFixed(1)}, ${p0Y.toFixed(1)})`} />
-          )}
+          {/* ── Revenue start label — suppressed when lines are tight ── */}
+          {!tightLines && (() => {
+            const angle = Math.atan2(p1Y - p0Y, p1X - p0X) * 180 / Math.PI;
+            return (
+              <text transform={`rotate(${angle.toFixed(1)}, ${p0X.toFixed(1)}, ${p0Y.toFixed(1)})`}
+                x={p0X + 15} y={p0Y - 7}
+                textAnchor="start" fontSize={fsAnnot} fontFamily={font} fontWeight="bold" fill="#000">
+                {fmtMoney(rev0)} revenue per month
+              </text>
+            );
+          })()}
 
-          {/* ── Growth rate label — anchored after protractor arc, always shown ── */}
-          <LabelBg x={p0X + protRad + dragRad + 8} y={p0Y - 7} text={growText}
-            fontSize={fsAnnot} fontFamily={font} fontWeight="bold"
-            transform={`rotate(${lineAngleDeg.toFixed(1)}, ${p0X.toFixed(1)}, ${p0Y.toFixed(1)})`} />
+          {/* ── Growth rate label — after the protractor arc */}
+          {(() => {
+            const angle = Math.atan2(p1Y - p0Y, p1X - p0X) * 180 / Math.PI;
+            const pct = Math.round(g * 100);
+            return (
+              <text transform={`rotate(${angle.toFixed(1)}, ${p0X.toFixed(1)}, ${p0Y.toFixed(1)})`}
+                x={p0X + protRad + 15} y={p0Y - 7}
+                textAnchor="start" fontSize={fsAnnot} fontFamily={font} fontWeight="bold" fill="#000">
+                {isMobile ? `${pct}% / mo` : `growing ${pct}% monthly`}
+              </text>
+            );
+          })()}
 
-          {/* ── Expense label ── */}
-          {expPos && (
-            <LabelBg x={expPos.x} y={expPos.y} text={expText}
-              fontSize={fsAnnot} fontFamily={font} fontWeight="bold" />
+          {/* ── Expense label — suppressed when lines are tight ── */}
+          {!tightLines && (
+            <text x={p0X + 15} y={expY - 7}
+              fontSize={fsAnnot} fontFamily={font} fontWeight="bold" fill="#000">
+              {fmtMoney(exp0)} expenses per month{expGrowth > 0 ? ` +${Math.round(expGrowth * 100)}%/mo` : ''}
+            </text>
           )}
 
           {/* ── Tight-lines floating legend — replaces all inline labels when crowded ── */}
@@ -603,7 +510,6 @@
             const lines = [
               { text: `${fmtMoney(rev0)} revenue / mo`, dot: '#ebff52', stroke: '#b8cc1a' },
               { text: `${fmtMoney(exp0)} expenses / mo`, dot: '#ff5252', stroke: '#cc1a1a' },
-              { text: growText, dot: '#555', stroke: '#333' },
               ...(rev0 < exp0 && breakevenMonth !== null && breakevenMonth > 0 && capitalNeeded > 0
                 ? [{ text: `${fmtMoney(capitalNeeded)} capital needed`, dot: '#d2f5ff', stroke: '#aac8d8' }]
                 : []),
@@ -645,14 +551,19 @@
           <path d={`M ${arcStartX.toFixed(1)} ${arcStartY.toFixed(1)} A ${protRad.toFixed(1)} ${protRad.toFixed(1)} 0 0 0 ${arcEndX.toFixed(1)} ${arcEndY.toFixed(1)}`}
             fill="none" stroke="#999" strokeWidth="1" />
 
-          {/* ── Breakeven annotation ── */}
-          {bkPos && (() => {
+          {/* ── Breakeven annotation ── Trevor: vertical line if within chart, arrow if beyond */}
+          {breakevenMonth !== null && breakevenMonth > 0 && (() => {
+            const label = `Profitable at ${fmtTime(breakevenMonth)}`;
             if (bx) {
+              const ly = convFlowToY(exp0) + 20;
+              const flipLeft = bx + 5 + label.length * charW > plotR;
               return (
                 <g>
-                  <line x1={bx} y1={convFlowToY(exp0)} x2={bx} y2={bkPos.box.y} stroke="#888" strokeWidth="1" />
-                  <LabelBg x={bkPos.x} y={bkPos.y} text={bkText}
-                    fontSize={fsAnnot} fontFamily={font} anchor={bkAnchor} />
+                  <line x1={bx} y1={convFlowToY(exp0)} x2={bx} y2={ly} stroke="#888" strokeWidth="1" />
+                  <text x={flipLeft ? bx - 3 : bx + 3} y={ly + 2}
+                    textAnchor={flipLeft ? 'end' : 'start'} fontSize={fsAnnot} fontFamily={font} fill="#000" dominantBaseline="top">
+                    {label}
+                  </text>
                 </g>
               );
             } else {
@@ -661,37 +572,46 @@
                 <g>
                   <path d={`M ${plotR} ${py} L ${plotR-20} ${py} M ${plotR} ${py} L ${plotR-8} ${py-3} M ${plotR} ${py} L ${plotR-8} ${py+3}`}
                     stroke="#888" strokeWidth="1" fill="none" />
-                  <LabelBg x={bkPos.x} y={bkPos.y} text={bkText}
-                    fontSize={fsAnnot} fontFamily={font} anchor="end" />
+                  <text x={plotR-25} y={py} textAnchor="end" fontSize={fsAnnot} fontFamily={font} fill="#000" dominantBaseline="middle">
+                    {label}
+                  </text>
                 </g>
               );
             }
           })()}
 
-          {/* ── $100M run rate annotation ── */}
-          {ipoPos && (() => {
-            const ipoAboveScale = ipoFlow > dynMaxFlow;
+          {/* ── $100M/yr annotation ── handles both within-scale and above-scale cases */}
+          {ipoMonth !== null && ipoMonth > 0 && (() => {
+            const label = `$100M run rate at ${fmtTime(ipoMonth)}`;
+            const aboveScale = ipoFlow > dynMaxFlow;
+            // When milestone is within time range but above chart scale, anchor at chart top
+            const lineX = ipoX ? ipoX : plotR;
+            const lineY = aboveScale ? plotT + 4 : (ipoX ? convFlowToY(ipoFlow) : Math.min(convFlowToY(revAtMonth(nMonths)), plotB - 30));
+            const p1lx = Math.min(plotR - 20, lineX - 20);
             return (
               <g>
-                {ipoAboveScale && ipoX ? (
+                {aboveScale && ipoX ? (
+                  // Upward arrow at the milestone x-position on the chart top edge
                   <>
-                    <line x1={ipoLineX} y1={plotT + 20} x2={ipoLineX} y2={plotT + 4} stroke="#888" strokeWidth="1" />
-                    <line x1={ipoLineX} y1={plotT + 4} x2={ipoLineX - 4} y2={plotT + 10} stroke="#888" strokeWidth="1" />
-                    <line x1={ipoLineX} y1={plotT + 4} x2={ipoLineX + 4} y2={plotT + 10} stroke="#888" strokeWidth="1" />
-                    <LabelBg x={ipoPos.x} y={ipoPos.y} text={ipoAnnotText}
-                      fontSize={fsAnnot} fontFamily={font} anchor={ipoAnchor} />
+                    <line x1={lineX} y1={plotT + 20} x2={lineX} y2={plotT + 4} stroke="#888" strokeWidth="1" />
+                    <line x1={lineX} y1={plotT + 4} x2={lineX - 4} y2={plotT + 10} stroke="#888" strokeWidth="1" />
+                    <line x1={lineX} y1={plotT + 4} x2={lineX + 4} y2={plotT + 10} stroke="#888" strokeWidth="1" />
+                    <text x={lineX + 8} y={plotT + 14} textAnchor="start" fontSize={fsAnnot} fontFamily={font} fill="#000" dominantBaseline="middle">
+                      {label}
+                    </text>
                   </>
                 ) : (
                   <>
-                    <line x1={ipoLineX} y1={ipoLineY} x2={ipoP1lx} y2={ipoLineY} stroke="#888" strokeWidth="1" />
+                    <line x1={lineX} y1={lineY} x2={p1lx} y2={lineY} stroke="#888" strokeWidth="1" />
                     {!ipoX && (
                       <>
-                        <line x1={ipoLineX} y1={ipoLineY} x2={ipoLineX-8} y2={ipoLineY-3} stroke="#888" strokeWidth="1" />
-                        <line x1={ipoLineX} y1={ipoLineY} x2={ipoLineX-8} y2={ipoLineY+3} stroke="#888" strokeWidth="1" />
+                        <line x1={lineX} y1={lineY} x2={lineX-8} y2={lineY-3} stroke="#888" strokeWidth="1" />
+                        <line x1={lineX} y1={lineY} x2={lineX-8} y2={lineY+3} stroke="#888" strokeWidth="1" />
                       </>
                     )}
-                    <LabelBg x={ipoPos.x} y={ipoPos.y} text={ipoAnnotText}
-                      fontSize={fsAnnot} fontFamily={font} anchor={ipoAnchor} />
+                    <text x={p1lx - 5} y={lineY} textAnchor="end" fontSize={fsAnnot} fontFamily={font} fill="#000" dominantBaseline="middle">
+                      {label}
+                    </text>
                   </>
                 )}
               </g>
