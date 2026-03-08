@@ -621,7 +621,7 @@
             return (
               <g key={yr}>
                 <line x1={x} y1={plotB} x2={x} y2={plotB + 5} stroke="#888" strokeWidth="1" />
-                <text x={x} y={plotB + 9} textAnchor="middle" fontSize={fsXLabel} fontFamily={font} fill="#888" dominantBaseline="top">
+                <text x={x} y={plotB + 17} textAnchor="middle" fontSize={fsXLabel} fontFamily={font} fill="#888" dominantBaseline="top">
                   {yr === 0 ? 'today' : yr === 3 ? '3 years' : `year ${yr}`}
                 </text>
               </g>
