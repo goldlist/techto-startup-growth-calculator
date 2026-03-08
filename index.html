@@ -37,6 +37,12 @@
       pointer-events: none;
     }
     #root { padding-top: 150px; padding-bottom: 140px; }
+    @media (min-width: 640px) {
+      .exact-numbers-wrap { padding-left: calc(77 / 900 * 100%); }
+    }
+    @media (max-width: 639px) {
+      #root { padding-top: 100px; }
+    }
     @keyframes techtoFadeUp {
       from { opacity: 0; transform: translate3d(0, 25%, 0); }
       to   { opacity: 1; transform: translate3d(0, 0, 0); }
@@ -132,8 +138,10 @@
 
     function GrowthChart({ rev0, exp0, expGrowth, growth, onRev, onExp, onGrowth, summaryText }) {
       const svgRef = useRef(null);
+      const containerRef = useRef(null);
       const dragging = useRef(null);
       const [, forceRender] = useState(0);
+      const [containerW, setContainerW] = useState(() => typeof window !== 'undefined' ? window.innerWidth : 900);
 
       // ── Dynamic Y-axis auto-zoom ──────────────────────────────────────────
       const logMinRef = useRef(null);
@@ -171,14 +179,32 @@
 
       useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
 
-      // Layout — mirrors Trevor's setupLayout()
-      const W = 900, H = 500;
-      const labelW = 72;
-      const plotL = 5 + labelW;   // 77
-      const plotR = W - 20;        // 880
-      const plotT = 45;
-      const plotB = H - 35;        // 465
-      const dragRad = 7;
+      useEffect(() => {
+        const el = containerRef.current;
+        if (!el) return;
+        const ro = new ResizeObserver(entries => setContainerW(entries[0].contentRect.width));
+        ro.observe(el);
+        return () => ro.disconnect();
+      }, []);
+
+      // Layout — mobile-responsive
+      const isMobile = containerW < 640;
+      const W = isMobile ? 500 : 900;
+      const H = isMobile ? 540 : 500;
+      const labelW = isMobile ? 56 : 72;
+      const plotL = 5 + labelW;
+      const plotR = W - (isMobile ? 12 : 20);
+      const plotT = isMobile ? 38 : 45;
+      const plotB = H - (isMobile ? 38 : 35);
+      const dragRad = isMobile ? 13 : 7;
+      const hitRad = isMobile ? 26 : dragRad;
+      // Font sizes — scaled so rendered CSS pixels stay consistent across viewBox sizes
+      const fsAxis = isMobile ? 15 : 11;
+      const fsXLabel = isMobile ? 16 : 12;
+      const fsAnnot = isMobile ? 18 : 13;
+      const fsCapLabel = isMobile ? 19 : 14;
+      const fsProt = isMobile ? 15 : 11;
+      const charW = isMobile ? 10 : 7; // approx px/char for overflow detection
 
       // Scale — exact Trevor formulas (convFlowToY, convWeekToX, inverses)
       // We work in months throughout (Trevor works in weeks; math is equivalent)
@@ -338,7 +364,7 @@
       const ipoX = ipoWithin ? convMonthToX(ipoMonth) : null;
 
       return (
-        <div>
+        <div ref={containerRef}>
         <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" style={{ touchAction: 'none' }}>
           <defs>
             {/* Capital fill gradient */}
@@ -372,7 +398,7 @@
 
           {/* ── Capital needed label ── Trevor's exact position formula */}
           {rev0 < exp0 && breakevenMonth !== null && breakevenMonth > 0 && (
-            <text x={lbX} y={lbY} fontSize="14" fontFamily={font} fontWeight="bold" fill="#000" dominantBaseline="middle">
+            <text x={lbX} y={lbY} fontSize={fsCapLabel} fontFamily={font} fontWeight="bold" fill="#000" dominantBaseline="middle">
               {fmtMoney(capitalNeeded)} capital needed
             </text>
           )}
@@ -399,7 +425,7 @@
 
             // Crossing annotation — mirrors breakeven annotation style
             const crossLabel = `Costs exceed revenue at ${fmtTime(cMonth)}`;
-            const flipLeft = cX + crossLabel.length * 7 > plotR;
+            const flipLeft = cX + crossLabel.length * charW > plotR;
             const lineEndY = Math.min(cY + 20, plotB - 4);
 
             // Philosophical label centred in the blue zone
@@ -412,11 +438,11 @@
                 <path clipPath="url(#chartClip)" d={d} fill="url(#capGrad)" />
                 <line x1={cX} y1={cY} x2={cX} y2={lineEndY} stroke="#888" strokeWidth="1" />
                 <text x={flipLeft ? cX - 3 : cX + 3} y={lineEndY + 2}
-                  textAnchor={flipLeft ? 'end' : 'start'} fontSize="13" fontFamily={font} fill="#000" dominantBaseline="top">
+                  textAnchor={flipLeft ? 'end' : 'start'} fontSize={fsAnnot} fontFamily={font} fill="#000" dominantBaseline="top">
                   {crossLabel}
                 </text>
                 <text x={midX} y={midY}
-                  textAnchor="middle" fontSize="14" fontFamily={font} fontWeight="bold" fill="#000" dominantBaseline="middle">
+                  textAnchor="middle" fontSize={fsCapLabel} fontFamily={font} fontWeight="bold" fill="#000" dominantBaseline="middle">
                   costs outrun growth
                 </text>
               </g>
@@ -446,7 +472,7 @@
             return (
               <text transform={`rotate(${angle.toFixed(1)}, ${p0X.toFixed(1)}, ${p0Y.toFixed(1)})`}
                 x={p0X + 15} y={p0Y - 7}
-                textAnchor="start" fontSize="13" fontFamily={font} fontWeight="bold" fill="#000">
+                textAnchor="start" fontSize={fsAnnot} fontFamily={font} fontWeight="bold" fill="#000">
                 {fmtMoney(rev0)} revenue per month
               </text>
             );
@@ -459,7 +485,7 @@
             return (
               <text transform={`rotate(${angle.toFixed(1)}, ${p0X.toFixed(1)}, ${p0Y.toFixed(1)})`}
                 x={p0X + protRad - 12} y={p0Y - 7}
-                textAnchor="end" fontSize="13" fontFamily={font} fontWeight="bold" fill="#000">
+                textAnchor="end" fontSize={fsAnnot} fontFamily={font} fontWeight="bold" fill="#000">
                 {`growing ${pct}% monthly`}
               </text>
             );
@@ -467,7 +493,7 @@
 
           {/* ── Expense label — Trevor: textAlign left, at +15 from p0 along expense line */}
           <text x={p0X + 15} y={expY - 7}
-            fontSize="13" fontFamily={font} fontWeight="bold" fill="#000">
+            fontSize={fsAnnot} fontFamily={font} fontWeight="bold" fill="#000">
             {fmtMoney(exp0)} expenses per month{expGrowth > 0 ? ` +${Math.round(expGrowth * 100)}%/mo` : ''}
           </text>
 
@@ -477,7 +503,7 @@
               <line x1={p0X + protRad} y1={p0Y} x2={p0X + protRad + 10} y2={p0Y}
                 stroke="#999" strokeWidth="1" />
               <text x={p0X + protRad + 13} y={p0Y + 4}
-                fontSize="11" fontFamily={font} fill="#666">{label}</text>
+                fontSize={fsProt} fontFamily={font} fill="#666">{label}</text>
             </g>
           ))}
           {/* Arc: from angle=0 (rightward) to maxAngle, counterclockwise (sweep=0 in SVG) */}
@@ -489,12 +515,12 @@
             const label = `Profitable at ${fmtTime(breakevenMonth)}`;
             if (bx) {
               const ly = convFlowToY(exp0) + 20;
-              const flipLeft = bx + 5 + label.length * 7 > plotR;
+              const flipLeft = bx + 5 + label.length * charW > plotR;
               return (
                 <g>
                   <line x1={bx} y1={convFlowToY(exp0)} x2={bx} y2={ly} stroke="#888" strokeWidth="1" />
                   <text x={flipLeft ? bx - 3 : bx + 3} y={ly + 2}
-                    textAnchor={flipLeft ? 'end' : 'start'} fontSize="13" fontFamily={font} fill="#000" dominantBaseline="top">
+                    textAnchor={flipLeft ? 'end' : 'start'} fontSize={fsAnnot} fontFamily={font} fill="#000" dominantBaseline="top">
                     {label}
                   </text>
                 </g>
@@ -505,7 +531,7 @@
                 <g>
                   <path d={`M ${plotR} ${py} L ${plotR-20} ${py} M ${plotR} ${py} L ${plotR-8} ${py-3} M ${plotR} ${py} L ${plotR-8} ${py+3}`}
                     stroke="#888" strokeWidth="1" fill="none" />
-                  <text x={plotR-25} y={py} textAnchor="end" fontSize="13" fontFamily={font} fill="#000" dominantBaseline="middle">
+                  <text x={plotR-25} y={py} textAnchor="end" fontSize={fsAnnot} fontFamily={font} fill="#000" dominantBaseline="middle">
                     {label}
                   </text>
                 </g>
@@ -529,7 +555,7 @@
                     <line x1={lineX} y1={plotT + 20} x2={lineX} y2={plotT + 4} stroke="#888" strokeWidth="1" />
                     <line x1={lineX} y1={plotT + 4} x2={lineX - 4} y2={plotT + 10} stroke="#888" strokeWidth="1" />
                     <line x1={lineX} y1={plotT + 4} x2={lineX + 4} y2={plotT + 10} stroke="#888" strokeWidth="1" />
-                    <text x={lineX + 8} y={plotT + 14} textAnchor="start" fontSize="13" fontFamily={font} fill="#000" dominantBaseline="middle">
+                    <text x={lineX + 8} y={plotT + 14} textAnchor="start" fontSize={fsAnnot} fontFamily={font} fill="#000" dominantBaseline="middle">
                       {label}
                     </text>
                   </>
@@ -542,7 +568,7 @@
                         <line x1={lineX} y1={lineY} x2={lineX-8} y2={lineY+3} stroke="#888" strokeWidth="1" />
                       </>
                     )}
-                    <text x={p1lx - 5} y={lineY} textAnchor="end" fontSize="13" fontFamily={font} fill="#000" dominantBaseline="middle">
+                    <text x={p1lx - 5} y={lineY} textAnchor="end" fontSize={fsAnnot} fontFamily={font} fill="#000" dominantBaseline="middle">
                       {label}
                     </text>
                   </>
@@ -568,7 +594,7 @@
             return (
               <g key={yr}>
                 <line x1={x} y1={plotB} x2={x} y2={plotB + 7} stroke="#888" strokeWidth="1" />
-                <text x={x} y={plotB + 10} textAnchor="middle" fontSize="12" fontFamily={font} fill="#888" dominantBaseline="top">
+                <text x={x} y={plotB + 10} textAnchor="middle" fontSize={fsXLabel} fontFamily={font} fill="#888" dominantBaseline="top">
                   {yr === 0 ? 'today' : yr === 3 ? '3 years' : `year ${yr}`}
                 </text>
               </g>
@@ -581,33 +607,36 @@
             return (
               <g key={flow}>
                 <line x1={plotL} y1={y} x2={plotL - 10} y2={y} stroke="#888" strokeWidth="1" />
-                <text x={plotL - 12} y={y} textAnchor="end" fontSize="11" fontFamily={font} fill="#888" dominantBaseline="middle">
+                <text x={plotL - 12} y={y} textAnchor="end" fontSize={fsAxis} fontFamily={font} fill="#888" dominantBaseline="middle">
                   {fmtMoney(flow)}
                 </text>
               </g>
             );
           })}
 
-          {/* ── Drag handles ── Trevor: drawDragHandle() red=exp, green=rev */}
-          {/* Revenue handle at p0 */}
-          <circle cx={p0X} cy={p0Y} r={dragRad} fill="#ebff52" stroke="#b8cc1a" strokeWidth={dragRad/4}
+          {/* ── Drag handles ── invisible large hit area + visible circle */}
+          {/* Revenue handle */}
+          <circle cx={p0X} cy={p0Y} r={hitRad} fill="transparent"
             style={{ cursor: 'ns-resize' }}
             onMouseDown={startDrag('rev')} onTouchStart={startDrag('rev')} />
+          <circle cx={p0X} cy={p0Y} r={dragRad} fill="#ebff52" stroke="#b8cc1a" strokeWidth={dragRad/4} style={{ pointerEvents: 'none' }} />
           <circle cx={p0X} cy={p0Y} r={dragRad * 0.25} fill="#f5ffaa" style={{ pointerEvents: 'none' }} />
 
-          {/* Growth handle at pm (on revenue line at protRad) */}
-          <circle cx={pmX} cy={pmY} r={dragRad + 2} fill="#ebff52" stroke="#b8cc1a" strokeWidth={2}
+          {/* Growth handle */}
+          <circle cx={pmX} cy={pmY} r={hitRad} fill="transparent"
             style={{ cursor: 'ns-resize' }}
             onMouseDown={startDrag('growth')} onTouchStart={startDrag('growth')} />
+          <circle cx={pmX} cy={pmY} r={dragRad + 2} fill="#ebff52" stroke="#b8cc1a" strokeWidth={2} style={{ pointerEvents: 'none' }} />
 
-          {/* Expense handle at (p0X, expY) */}
-          <circle cx={p0X} cy={expY} r={dragRad} fill="#ff5252" stroke="#cc1a1a" strokeWidth={dragRad/4}
+          {/* Expense handle */}
+          <circle cx={p0X} cy={expY} r={hitRad} fill="transparent"
             style={{ cursor: 'ns-resize' }}
             onMouseDown={startDrag('exp')} onTouchStart={startDrag('exp')} />
+          <circle cx={p0X} cy={expY} r={dragRad} fill="#ff5252" stroke="#cc1a1a" strokeWidth={dragRad/4} style={{ pointerEvents: 'none' }} />
           <circle cx={p0X} cy={expY} r={dragRad * 0.25} fill="#ff9090" style={{ pointerEvents: 'none' }} />
 
-          {/* ── Summary sentence — right-aligned just above x-axis ── */}
-          {summaryText && (
+          {/* ── Summary sentence — right-aligned just above x-axis (desktop only) ── */}
+          {summaryText && !isMobile && (
             <text x={plotR} y={plotB - 8} textAnchor="end" fontSize="11" fontFamily={font}
               fill="#9ca3af" letterSpacing="0.08em" dominantBaseline="bottom"
               style={{ pointerEvents: 'none' }}>
@@ -616,13 +645,12 @@
           )}
         </svg>
           {/* Mobile callout */}
-          <div className="md:hidden" style={{ marginTop: '6px', fontSize: '13px', color: '#6b7280', textAlign: 'center', fontFamily: 'Artex, sans-serif' }}>
-            {breakevenMonth !== null && breakevenMonth > 0
-              ? `Profitable in ${Math.ceil(breakevenMonth)} months at ${Math.round(growth * 100)}% growth`
-              : breakevenMonth === 0
-              ? `Already profitable at ${Math.round(growth * 100)}% growth`
-              : `Not profitable at ${Math.round(growth * 100)}% growth`}
-          </div>
+          {isMobile && summaryText && (
+            <div style={{ marginTop: '8px', textAlign: 'center', fontFamily: 'Artex, sans-serif',
+              fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              {summaryText}
+            </div>
+          )}
         </div>
       );
     }
@@ -729,8 +757,8 @@
                 } />
             </div>
 
-            {/* Exact number entry — left edge aligned with "today" x-axis label (plotL/W = 77/900) */}
-            <div style={{ marginTop: '12px', paddingLeft: 'calc(77 / 900 * 100%)' }}>
+            {/* Exact number entry — aligned with y-axis on desktop */}
+            <div className="exact-numbers-wrap" style={{ marginTop: '12px' }}>
               <a onClick={() => setShowExact(s => !s)}
                 style={{ fontSize: '11px', color: '#9ca3af', cursor: 'pointer', textDecoration: 'underline' }}>
                 {showExact ? 'hide exact numbers' : 'enter exact numbers'}
@@ -742,7 +770,7 @@
                   if (s.endsWith('m')) return parseFloat(s) * 1000000;
                   return parseFloat(s);
                 };
-                const fieldStyle = { width: '120px', fontSize: '12px', padding: '3px 6px', border: '1px solid #e5e7eb', borderRadius: '5px', textAlign: 'right', fontFamily: 'Artex, sans-serif', outline: 'none' };
+                const fieldStyle = { width: '120px', fontSize: '16px', padding: '3px 6px', border: '1px solid #e5e7eb', borderRadius: '5px', textAlign: 'right', fontFamily: 'Artex, sans-serif', outline: 'none' };
                 const labelStyle = { fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '2px' };
                 return (
                   <div style={{ display: 'flex', gap: '16px', marginTop: '8px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -805,7 +833,7 @@
                   return Math.log(target / rev0) / Math.log(1 + growth);
                 });
                 return (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '12px' }}>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                     {genericMilestones.map((m, i) => {
                       const mo = moForGeneric[i];
                       const passed = mo === 0;
@@ -836,7 +864,7 @@
               })()}
 
               {/* Company milestones */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {MILESTONES.map((m, i) => {
                   const mo = milestoneMonths[i];
                   const passed = mo === 0;
