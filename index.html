@@ -6,6 +6,16 @@
   <title>Default Alive? — TechTO</title>
   <link href="favicon.png" rel="shortcut icon" type="image/x-icon">
   <link href="webclip.png" rel="apple-touch-icon">
+  <!-- Open Graph -->
+  <meta property="og:title" content="TechTO Startup Growth Calculator">
+  <meta property="og:description" content="Figure out how much capital you need, how fast you need to grow, and when you can reach profitability.">
+  <meta property="og:image" content="https://growth.techto.org/og-image.png">
+  <meta property="og:url" content="https://growth.techto.org">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="TechTO Startup Growth Calculator">
+  <meta name="twitter:description" content="Figure out how much capital you need, how fast you need to grow, and when you can reach profitability.">
+  <meta name="twitter:image" content="https://growth.techto.org/og-image.png">
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -747,11 +757,13 @@
                           borderRadius: '10px',
                           padding: '14px 16px',
                           background: passed ? '#f0fdf4' : '#fff',
+                          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                          minHeight: '130px',
                         }}>
-                          <div style={{ fontSize: '18px', fontWeight: 'bold', fontFamily: 'Feature Display, serif', color: passed ? '#16a34a' : never ? '#9ca3af' : '#111', marginBottom: '4px', lineHeight: 1.2 }}>
+                          <div style={{ fontSize: '18px', fontWeight: 'bold', fontFamily: 'Feature Display, serif', color: passed ? '#16a34a' : never ? '#9ca3af' : '#111', lineHeight: 1.2 }}>
                             {m.label}
                           </div>
-                          <div style={{ fontSize: '12px', color: passed ? '#16a34a' : never ? '#9ca3af' : '#6b7280' }}>
+                          <div style={{ fontSize: '12px', color: passed ? '#16a34a' : never ? '#9ca3af' : '#6b7280', marginTop: '8px' }}>
                             {passed ? 'Already here' : never ? 'Never' : fmtTimeLong(mo)}
                           </div>
                         </div>
@@ -762,7 +774,7 @@
               })()}
 
               {/* Company milestones */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
                 {MILESTONES.map((m, i) => {
                   const mo = milestoneMonths[i];
                   const passed = mo === 0;
@@ -775,6 +787,8 @@
                       background: passed ? '#f0fdf4' : '#fff',
                       position: 'relative',
                       overflow: 'hidden',
+                      display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                      minHeight: '130px',
                     }}>
                       {passed && (
                         <div style={{
