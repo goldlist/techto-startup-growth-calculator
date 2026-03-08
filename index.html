@@ -392,8 +392,8 @@
             return <path clipPath="url(#chartClip)" d={d} fill="url(#capGrad)" />;
           })()}
 
-          {/* ── Capital needed label (wide-gap case only) ── */}
-          {!tightLines && rev0 < exp0 && breakevenMonth !== null && breakevenMonth > 0 && (() => {
+          {/* ── Capital needed label (wide-gap, desktop only) ── */}
+          {!tightLines && !isMobile && rev0 < exp0 && breakevenMonth !== null && breakevenMonth > 0 && (() => {
             const label = `${fmtMoney(capitalNeeded)} capital needed`;
             const textW = label.length * fsCapLabel * 0.58 + 8;
             const textH = fsCapLabel * 1.4;
@@ -472,8 +472,8 @@
             return <path d={d} stroke="#ff5252" strokeWidth="3" fill="none" clipPath="url(#chartClip)" />;
           })()}
 
-          {/* ── Revenue start label — suppressed when lines are tight ── */}
-          {!tightLines && (() => {
+          {/* ── Revenue start label — desktop only; mobile uses legend ── */}
+          {!tightLines && !isMobile && (() => {
             const angle = Math.atan2(p1Y - p0Y, p1X - p0X) * 180 / Math.PI;
             return (
               <text transform={`rotate(${angle.toFixed(1)}, ${p0X.toFixed(1)}, ${p0Y.toFixed(1)})`}
@@ -484,8 +484,8 @@
             );
           })()}
 
-          {/* ── Growth rate label — after the protractor arc */}
-          {(() => {
+          {/* ── Growth rate label — desktop only; mobile uses legend ── */}
+          {!isMobile && (() => {
             const angle = Math.atan2(p1Y - p0Y, p1X - p0X) * 180 / Math.PI;
             const pct = Math.round(g * 100);
             return (
@@ -497,19 +497,21 @@
             );
           })()}
 
-          {/* ── Expense label — suppressed when lines are tight ── */}
-          {!tightLines && (
+          {/* ── Expense label — desktop only; mobile uses legend ── */}
+          {!tightLines && !isMobile && (
             <text x={p0X + 15} y={expY - 7}
               fontSize={fsAnnot} fontFamily={font} fontWeight="bold" fill="#000">
               {fmtMoney(exp0)} expenses per month{expGrowth > 0 ? ` +${Math.round(expGrowth * 100)}%/mo` : ''}
             </text>
           )}
 
-          {/* ── Tight-lines floating legend — replaces all inline labels when crowded ── */}
-          {tightLines && (() => {
+          {/* ── Legend: always on mobile, only when tightLines on desktop ── */}
+          {(tightLines || isMobile) && (() => {
+            const pct = Math.round(g * 100);
             const lines = [
               { text: `${fmtMoney(rev0)} revenue / mo`, dot: '#ebff52', stroke: '#b8cc1a' },
               { text: `${fmtMoney(exp0)} expenses / mo`, dot: '#ff5252', stroke: '#cc1a1a' },
+              ...(isMobile ? [{ text: `${pct}% / mo growth`, dot: '#555', stroke: '#333' }] : []),
               ...(rev0 < exp0 && breakevenMonth !== null && breakevenMonth > 0 && capitalNeeded > 0
                 ? [{ text: `${fmtMoney(capitalNeeded)} capital needed`, dot: '#d2f5ff', stroke: '#aac8d8' }]
                 : []),
@@ -518,8 +520,10 @@
             const pad = 9;
             const maxW = Math.max(...lines.map(l => l.text.length)) * fsAnnot * 0.54 + pad * 2 + 14;
             const boxH = lines.length * lineH + pad * 1.5;
-            const bx = plotL + 10;
-            const by = plotT + 10;
+            // Mobile: anchor to bottom-right, away from protractor arc in top-left
+            // Desktop: top-left (original position)
+            const bx = isMobile ? plotR - maxW - 10 : plotL + 10;
+            const by = isMobile ? plotB - boxH - 16 : plotT + 10;
             return (
               <g style={{ pointerEvents: 'none' }}>
                 <rect x={bx} y={by} width={maxW} height={boxH}
