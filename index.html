@@ -236,11 +236,9 @@
         ? Math.log(ipoFlow / rev0) / Math.log(1 + g)
         : rev0 >= ipoFlow ? 0 : null;
 
-      // Revenue line endpoint: Trevor uses min(nWeeks, ipoWeek)
-      // Line only goes as far as the $100M milestone (or end of chart)
-      const p1Month = (ipoMonth !== null && ipoMonth > 0)
-        ? Math.max(1, Math.min(nMonths, ipoMonth))
-        : nMonths;
+      // Revenue line always extends to end of chart — $100M milestone is an
+      // annotation on the line, not its endpoint (truncating caused visual gaps)
+      const p1Month = nMonths;
 
       const p0X = convMonthToX(0), p0Y = convFlowToY(rev0);
       const p1X = convMonthToX(p1Month), p1Y = convFlowToY(revAtMonth(p1Month));
