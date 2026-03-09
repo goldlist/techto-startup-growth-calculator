@@ -1029,8 +1029,8 @@
         headline = `${Math.ceil(breakevenMonth)} months to profitability`;
         subline  = `${fmtCap(capitalNeeded)} runway needed — consider raising`;
       } else {
-        headline = breakevenMonth > 48 ? `${Math.ceil(breakevenMonth)} months to break even` : "Revenue can't catch expenses";
-        subline  = breakevenMonth > 48 ? `${fmtCap(capitalNeeded)} needed — requires major raise` : 'Cut costs or dramatically raise growth rate';
+        headline = `${Math.ceil(breakevenMonth)} months to profitability`;
+        subline  = `${fmtCap(capitalNeeded)} needed — major fundraise required`;
       }
 
       const pct     = Math.round(growth * 100);
@@ -1354,8 +1354,8 @@
               } else if (verdictLevel === 'yellow') {
                 headline = `${Math.ceil(breakevenMonth)} months to profitability`; subline = `${fmtCap(capitalNeeded)} runway needed — consider raising`;
               } else {
-                headline = breakevenMonth > 48 ? `${Math.ceil(breakevenMonth)} months to break even` : "Revenue can't catch expenses";
-                subline  = breakevenMonth > 48 ? `${fmtCap(capitalNeeded)} needed — requires major raise` : 'Cut costs or dramatically raise growth rate';
+                headline = `${Math.ceil(breakevenMonth)} months to profitability`;
+                subline  = `${fmtCap(capitalNeeded)} needed — major fundraise required`;
               }
 
               return (
