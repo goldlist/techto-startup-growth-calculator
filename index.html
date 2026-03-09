@@ -1089,7 +1089,7 @@
         <div style={{ fontFamily: 'Artex, system-ui, sans-serif', backgroundColor: '#fff' }}>
 
           {/* ── Chart — explicit CSS height ~2/3 of usable viewport ── */}
-          <div style={{ height: 'clamp(160px, calc((100dvh - 240px) * 0.65), 70vh)', borderBottom: '1px solid #f3f4f6', overflow: 'hidden' }}>
+          <div style={{ height: 'clamp(160px, calc(100dvh - 440px), 65vh)', borderBottom: '1px solid #f3f4f6', overflow: 'hidden' }}>
             <MobileSimpleChart rev0={rev0} exp0={exp0} expGrowth={expGrowth} growth={growth} breakevenMonth={breakevenMonth}
               onRev={setRev0} onExp={setExp0} onGrowth={setGrowth} />
           </div>
