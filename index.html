@@ -409,7 +409,7 @@
       // Layout — mobile-responsive
       const isMobile = containerW < 640;
       const W = isMobile ? 500 : 900;
-      const H = isMobile ? 540 : 500;
+      const H = isMobile ? 460 : 500;
       const labelW = isMobile ? 56 : 72;
       const plotL = 5 + labelW;
       const plotR = W - (isMobile ? 38 : 20);
@@ -1315,8 +1315,7 @@
                 setRev0={setRev0} setExp0={setExp0} setGrowth={setGrowth} setExpGrowth={setExpGrowth}
                 breakevenMonth={breakevenMonth} capitalNeeded={capitalNeeded} defaultAlive={defaultAlive} />
             ) : (
-              <div className="fadein-1 px-3 md:px-0"
-                style={{ maxHeight: isMobile ? 'calc(100dvh - 360px)' : 'none', overflow: isMobile ? 'hidden' : 'visible' }}>
+              <div className="fadein-1 px-3 md:px-0">
                 <GrowthChart rev0={rev0} exp0={exp0} expGrowth={expGrowth} growth={growth}
                   onRev={setRev0} onExp={setExp0} onGrowth={setGrowth}
                   capitalNeeded={capitalNeeded} />
