@@ -360,13 +360,12 @@
 
       // Tight-lines detection — when rev and exp handles are too close to label inline
       const expY0 = convFlowToY(exp0);
+      // When rev > exp there's no capital area crowding labels, so use much tighter thresholds
+      const belowBreakeven = rev0 < exp0;
       // earlyTight: slanted revenue label goes to legend first
-      const earlyTight = Math.abs(p0Y - expY0) < fsAnnot * 9;
+      const earlyTight = Math.abs(p0Y - expY0) < fsAnnot * (belowBreakeven ? 9 : 3);
       // tightLines: horizontal expense label goes to legend too
-      const tightLines = Math.abs(p0Y - expY0) < fsAnnot * 5;
-      // growthLabelTight: "growing X%" label hides when lines are close at its own position
-      const growLabelMonth = protMonth + 2;
-      const growthLabelTight = Math.abs(convFlowToY(revAtMonth(growLabelMonth)) - convFlowToY(expAtMonth(growLabelMonth))) < fsAnnot * 5;
+      const tightLines = Math.abs(p0Y - expY0) < fsAnnot * (belowBreakeven ? 5 : 1.5);
       // Tight-cap detection — when the capital zone is too narrow to fit the inline label
       const capGapAtLabel = (rev0 < exp0 && breakevenMonth !== null && breakevenMonth > 0 && capitalNeeded > 0)
         ? convFlowToY(revAtMonth(lbMonth)) - convFlowToY(expAtMonth(lbMonth))
@@ -501,20 +500,14 @@
             );
           })()}
 
-          {/* ── Growth rate label — desktop only; goes to legend when growthLabelTight ── */}
-          {!growthLabelTight && !isMobile && (() => {
+          {/* ── Growth rate label — desktop only ── */}
+          {!isMobile && (() => {
             const pct = Math.round(g * 100);
-            // Position label just past the arc handle, clear of the protractor numbers
-            const lMonth = protMonth + 2;
-            const lX = convMonthToX(lMonth);
-            const lY = convFlowToY(revAtMonth(lMonth));
-            const localAngle = Math.atan2(
-              convFlowToY(revAtMonth(lMonth + 1)) - convFlowToY(revAtMonth(lMonth - 1)),
-              convMonthToX(lMonth + 1) - convMonthToX(lMonth - 1)
-            ) * 180 / Math.PI;
+            // Anchor off protRad (the actual arc end), not protMonth (which ignores vertical ceiling)
+            const angle = Math.atan2(p1Y - p0Y, p1X - p0X) * 180 / Math.PI;
             return (
-              <text transform={`rotate(${localAngle.toFixed(1)}, ${lX.toFixed(1)}, ${lY.toFixed(1)})`}
-                x={lX} y={lY - 8}
+              <text transform={`rotate(${angle.toFixed(1)}, ${p0X.toFixed(1)}, ${p0Y.toFixed(1)})`}
+                x={p0X + protRad + 60} y={p0Y - 7}
                 textAnchor="start" fontSize={fsAnnot} fontFamily={font} fontWeight="bold" fill="#000">
                 growing {pct}% monthly
               </text>
@@ -750,7 +743,7 @@
         const p = new URLSearchParams(window.location.search);
         return {
           rev: Number(p.get('r')) || 10000,
-          exp: Number(p.get('e')) || 25000,
+          exp: Number(p.get('e')) || 50000,
           g:   Number(p.get('g')) || 0.10,
           eg:  Number(p.get('eg')) || 0,
         };
@@ -849,7 +842,7 @@
                   style={{ fontSize: '11px', color: '#9ca3af', cursor: 'pointer', textDecoration: 'underline' }}>
                   {showExact ? 'hide exact numbers' : 'enter exact numbers'}
                 </a>
-                <a onClick={() => { setRev0(10000); setExp0(25000); setGrowth(0.10); setExpGrowth(0); }}
+                <a onClick={() => { setRev0(10000); setExp0(50000); setGrowth(0.10); setExpGrowth(0); }}
                   style={{ fontSize: '11px', color: '#9ca3af', cursor: 'pointer', textDecoration: 'underline' }}>
                   reset
                 </a>
