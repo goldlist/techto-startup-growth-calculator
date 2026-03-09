@@ -29,6 +29,8 @@
     @font-face { font-family: 'Artex'; src: url('./techto-brand/Artex-Regular.ttf') format('truetype'); }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: 'Artex', system-ui, sans-serif; background: #fff; }
+    /* Logo link overlaps page content due to grid z-index stacking */
+    .navbar2_logo-link { pointer-events: none; }
     .hero-gradient {
       z-index: 0;
       background-image: linear-gradient(180deg, #ebff52, white);
@@ -900,8 +902,7 @@
 
     // ─── Mobile view — verdict hero + sliders + simplified chart ─────────────────
     function MobileView({ rev0, exp0, growth, expGrowth, setRev0, setExp0, setGrowth, setExpGrowth,
-        breakevenMonth, capitalNeeded, defaultAlive, milestoneMonths, MILESTONES,
-        fmtTimeLong, fmtRevenue, scrolled, onToggle }) {
+        breakevenMonth, capitalNeeded, defaultAlive }) {
 
       const fmtMoney = v => {
         if (v >= 1e6) return '$' + Math.round(v / 1e6) + 'M';
@@ -938,39 +939,11 @@
       const expFill = logToSlider(exp0, EXP_MIN, EXP_MAX) / 10;
       const gFill   = (pct - 1) / 49 * 100;
 
-      const genericMilestones = [
-        { label: 'Default Alive', desc: 'reach profitability', arr: null },
-        { label: '$1M run rate',  desc: 'first million',       arr: 1_000_000 },
-        { label: '$10M run rate', desc: 'real traction',       arr: 10_000_000 },
-        { label: '$100M run rate',desc: 'category leader',     arr: 100_000_000 },
-      ];
-      const moForGeneric = genericMilestones.map(m => {
-        if (m.arr === null) return breakevenMonth;
-        const target = m.arr / 12;
-        if (rev0 >= target) return 0;
-        if (growth <= 0) return null;
-        return Math.log(target / rev0) / Math.log(1 + growth);
-      });
-
-      const milestoneCard = (passed, never, mo, label, desc, logo) => (
-        <div style={{ border: `1.5px solid ${passed ? '#22c55e' : '#e5e7eb'}`, borderRadius: '10px', padding: '14px 16px', background: passed ? '#f0fdf4' : '#fff', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '120px' }}>
-          {passed && <div style={{ position: 'absolute', top: '8px', right: '10px', fontSize: '11px', fontWeight: 'bold', color: '#16a34a' }}>✓ Passed</div>}
-          {logo && <img src={logo} alt={label} style={{ width: '22px', height: '22px', objectFit: 'contain', filter: passed ? 'none' : 'grayscale(100%)', marginBottom: '6px', display: 'block' }} onError={e => { e.target.style.display = 'none'; }} />}
-          <div>
-            <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#111', lineHeight: 1.2 }}>{label}</div>
-            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{desc}</div>
-          </div>
-          <div style={{ fontSize: '17px', fontWeight: 'bold', fontFamily: 'Feature Display, serif', color: passed ? '#16a34a' : never ? '#9ca3af' : '#111', marginTop: '8px' }}>
-            {passed ? 'Already here' : never ? 'Never' : fmtTimeLong(mo)}
-          </div>
-        </div>
-      );
-
       return (
-        <div style={{ fontFamily: 'Artex, system-ui, sans-serif', backgroundColor: '#fff', paddingBottom: '220px' }}>
+        <div style={{ fontFamily: 'Artex, system-ui, sans-serif', backgroundColor: '#fff' }}>
 
           {/* ── Chart ── */}
-          <div style={{ padding: '10px 12px 4px', borderBottom: '1px solid #f3f4f6' }}>
+          <div style={{ padding: '10px 0 4px', borderBottom: '1px solid #f3f4f6' }}>
             <MobileSimpleChart rev0={rev0} exp0={exp0} expGrowth={expGrowth} growth={growth} breakevenMonth={breakevenMonth} />
           </div>
 
@@ -1019,41 +992,6 @@
             {subline && <div style={{ fontSize: '13px', color: '#6b7280' }}>{subline}</div>}
           </div>
 
-          {/* ── Milestones ── */}
-          <div style={{ padding: '20px 16px 0' }}>
-            <p style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              At your current growth rate, here's when you'll hit milestones.
-            </p>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              {genericMilestones.map((m, i) => {
-                const mo = moForGeneric[i]; return <React.Fragment key={i}>{milestoneCard(mo === 0, mo === null, mo, m.label, m.desc, null)}</React.Fragment>;
-              })}
-            </div>
-            <div className="grid grid-cols-2 gap-3" style={{ paddingBottom: '20px' }}>
-              {MILESTONES.map((m, i) => {
-                const mo = milestoneMonths[i]; return <React.Fragment key={i}>{milestoneCard(mo === 0, mo === null, mo, m.name, fmtRevenue(m.arr), m.logo)}</React.Fragment>;
-              })}
-            </div>
-          </div>
-
-          {/* ── Fixed footer when scrolled ── */}
-          {scrolled && (
-            <div className="fadein-6" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 10, background: '#fff' }}>
-              <div className="padding-global">
-                <div className="container-large">
-                  <div className="padding-bottom padding-medium">
-                    <div className="cta8_component">
-                      <div className="cta8_content">
-                        <div className="text-size-large">Meet leaders, share ideas, and connect with people who can open new doors.</div>
-                      </div>
-                      <a href="https://techto.org/events" className="button is-secondary w-button">See Upcoming Events</a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div style={{ height: '60px', backgroundImage: "url('https://cdn.prod.website-files.com/66f1864b4a6f3045a6a2ca3e/66f4193346a254b2220786a2_Grid.svg')", backgroundPosition: '50% 0', backgroundRepeat: 'no-repeat', backgroundSize: 'cover' }} />
-            </div>
-          )}
         </div>
       );
     }
@@ -1142,9 +1080,17 @@
 
       const fmtTimeLong = mo => {
         if (mo < 1) return 'now';
+        if (mo < 12) return `${Math.ceil(mo)} month${Math.ceil(mo) === 1 ? '' : 's'}`;
+        const totalMonths = Math.round(mo);
+        const yrs = Math.floor(totalMonths / 12);
+        const mos = totalMonths % 12;
+        if (mos === 0) return `${yrs} year${yrs === 1 ? '' : 's'}`;
+        return `${yrs} year${yrs === 1 ? '' : 's'} ${mos} month${mos === 1 ? '' : 's'}`;
+      };
+      const fmtTimeShort = mo => {
+        if (mo < 1) return 'now';
         if (mo < 12) return `${Math.ceil(mo)} months`;
-        const yrs = mo / 12;
-        return `${Math.round(yrs)} years`;
+        return `${Math.round(mo / 12)} years`;
       };
 
       const milestoneMonths = MILESTONES.map(m => {
@@ -1164,31 +1110,28 @@
                 Startup Growth Calculator
               </h1>
               <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>
-                Inspired by <a href="https://growth.tlb.org/" style={{ color: 'inherit', textDecoration: 'underline' }}>Trevor Blackwell's calculator</a> and <a href="https://www.paulgraham.com/aord.html" style={{ color: 'inherit', textDecoration: 'underline' }}>Paul Graham's essay</a>. Modernized for founders by TechTO.
+                Inspired by <a href="https://growth.tlb.org/" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Trevor Blackwell's calculator</a> and <a href="https://www.paulgraham.com/aord.html" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>Paul Graham's essay</a>. Modernized for founders by TechTO.
               </p>
             </div>
             <div className="exact-numbers-wrap" style={{ marginTop: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingRight: 'calc(20 / 900 * 100%)' }}>
-                {!useMobileUI
-                  ? <a onClick={() => setShowExact(s => !s)}
-                      style={{ fontSize: '11px', color: '#9ca3af', cursor: 'pointer', textDecoration: 'underline' }}>
-                      {showExact ? 'hide exact numbers' : 'enter exact numbers'}
-                    </a>
-                  : <span />
-                }
+                <span onClick={e => { e.stopPropagation(); setShowExact(s => !s); }}
+                    style={{ fontSize: '11px', color: '#9ca3af', cursor: 'pointer', textDecoration: 'underline' }}>
+                    {showExact ? 'hide exact numbers' : 'enter exact numbers'}
+                  </span>
                 <div style={{ display: 'flex', gap: '12px' }}>
-                  <a onClick={() => switchView(!useMobileUI)}
+                  <span onClick={e => { e.stopPropagation(); switchView(!useMobileUI); }}
                     style={{ fontSize: '11px', color: '#9ca3af', cursor: 'pointer', textDecoration: 'underline' }}>
                     {useMobileUI ? 'desktop' : 'mobile'}
-                  </a>
-                  <a onClick={() => { setRev0(10000); setExp0(50000); setGrowth(0.10); setExpGrowth(0); }}
+                  </span>
+                  <span onClick={e => { e.stopPropagation(); setRev0(10000); setExp0(50000); setGrowth(0.10); setExpGrowth(0); }}
                     style={{ fontSize: '11px', color: '#9ca3af', cursor: 'pointer', textDecoration: 'underline' }}>
                     reset
-                  </a>
+                  </span>
                 </div>
               </div>
               {/* Exact number drawer — desktop only */}
-              {!useMobileUI && showExact && (() => {
+              {showExact && (() => {
                 const parseMoney = s => {
                   s = s.replace(/[$,\s]/g, '').toLowerCase();
                   if (s.endsWith('k')) return parseFloat(s) * 1000;
@@ -1258,32 +1201,27 @@
 
           {/* ── Transitioning view ── */}
           <div className={`view-wrap${viewVisible ? '' : ' view-hidden'}`}>
-          {useMobileUI ? (
-            <div style={{ maxWidth: '480px', margin: '0 auto' }}>
+          <main className="max-w-5xl mx-auto pt-2 pb-3" style={{ paddingBottom: '240px' }}>
+
+            {useMobileUI ? (
               <MobileView
                 rev0={rev0} exp0={exp0} growth={growth} expGrowth={expGrowth}
                 setRev0={setRev0} setExp0={setExp0} setGrowth={setGrowth} setExpGrowth={setExpGrowth}
-                breakevenMonth={breakevenMonth} capitalNeeded={capitalNeeded} defaultAlive={defaultAlive}
-                milestoneMonths={milestoneMonths} MILESTONES={MILESTONES}
-                fmtTimeLong={fmtTimeLong} fmtRevenue={fmtRevenue}
-                scrolled={scrolled} />
-            </div>
-          ) : (
-          <>
-          <main className="max-w-5xl mx-auto pt-2 pb-3" style={{ paddingBottom: '240px' }}>
-
-            <div className="fadein-1 px-3 md:px-0">
-              <GrowthChart rev0={rev0} exp0={exp0} expGrowth={expGrowth} growth={growth}
-                onRev={setRev0} onExp={setExp0} onGrowth={setGrowth}
-                capitalNeeded={capitalNeeded}
-                summaryText={
-                  defaultAlive && breakevenMonth > 0
-                    ? `Profitable in ${Math.ceil(breakevenMonth)} months at ${Math.round(growth * 100)}% growth · ${fmt(capitalNeeded)} needed`
-                    : defaultAlive && breakevenMonth === 0
-                    ? `Already profitable at ${Math.round(growth * 100)}% monthly growth`
-                    : `Costs growing faster than revenue — no profitability`
-                } />
-            </div>
+                breakevenMonth={breakevenMonth} capitalNeeded={capitalNeeded} defaultAlive={defaultAlive} />
+            ) : (
+              <div className="fadein-1 px-3 md:px-0">
+                <GrowthChart rev0={rev0} exp0={exp0} expGrowth={expGrowth} growth={growth}
+                  onRev={setRev0} onExp={setExp0} onGrowth={setGrowth}
+                  capitalNeeded={capitalNeeded}
+                  summaryText={
+                    defaultAlive && breakevenMonth > 0
+                      ? `Profitable in ${Math.ceil(breakevenMonth)} months at ${Math.round(growth * 100)}% growth · ${fmt(capitalNeeded)} needed`
+                      : defaultAlive && breakevenMonth === 0
+                      ? `Already profitable at ${Math.round(growth * 100)}% monthly growth`
+                      : `Costs growing faster than revenue — no profitability`
+                  } />
+              </div>
+            )}
 
             <div className="px-4">
             {/* Milestones Panel */}
@@ -1386,7 +1324,7 @@
                         fontFamily: 'Feature Display, serif',
                         color: passed ? '#16a34a' : never ? '#9ca3af' : '#111',
                       }}>
-                        {passed ? 'Already here' : never ? 'Never' : fmtTimeLong(mo)}
+                        {passed ? 'Already here' : never ? 'Never' : fmtTimeShort(mo)}
                       </div>
                     </div>
                   );
@@ -1418,8 +1356,6 @@
               backgroundPosition: '50% 0', backgroundRepeat: 'no-repeat', backgroundSize: 'cover',
             }} />
           </div>
-          </>
-          )}{/* end desktop ternary */}
           </div>{/* end view-wrap */}
         </div>
       );
@@ -1427,7 +1363,7 @@
 
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
-  <script src="webflow-export/js/webflow.js"></script>
+  <!-- webflow.js removed: was intercepting all click events and routing them to techto.org -->
   <script>
     (function () {
       const chars = 'abcdefghijklmnopqrstuvwxyz';
