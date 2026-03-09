@@ -223,27 +223,37 @@
       const onDragStart = (handle, e) => { e.preventDefault(); e.stopPropagation(); dragRef.current = handle; };
       const onDragEnd   = () => { dragRef.current = null; };
 
-      // Attach touchmove with passive:false to allow preventDefault (prevents page scroll while dragging)
+      // Attach touchmove with passive:false; throttle updates to one per rAF to prevent crash
       useEffect(() => {
         const el = svgRef.current; if (!el) return;
+        let rafId = null, pendingHandle = null, pendingV = null;
+        const flush = () => {
+          rafId = null;
+          if (!pendingHandle) return;
+          const h = pendingHandle, v = pendingV;
+          pendingHandle = null; pendingV = null;
+          if (h === 'rev') onRevRef.current && onRevRef.current(v);
+          else if (h === 'exp') onExpRef.current && onExpRef.current(v);
+          else if (h === 'growth') {
+            const g = Math.pow(v / Math.max(rev0Ref.current, 1), 1 / nMonths) - 1;
+            if (isFinite(g)) onGrowthRef.current && onGrowthRef.current(Math.max(0.01, Math.min(0.70, g)));
+          }
+        };
         const onTouchMove = e => {
           if (!dragRef.current) return;
           e.preventDefault();
           const touch = e.touches[0]; if (!touch) return;
           const v = Math.max(500, Math.min(2000000, yToFlow(getSvgY(touch.clientY))));
           if (!isFinite(v)) return;
-          if (dragRef.current === 'rev') onRevRef.current && onRevRef.current(v);
-          else if (dragRef.current === 'exp') onExpRef.current && onExpRef.current(v);
-          else if (dragRef.current === 'growth') {
-            const g = Math.pow(v / Math.max(rev0Ref.current, 1), 1 / nMonths) - 1;
-            if (isFinite(g)) onGrowthRef.current && onGrowthRef.current(Math.max(0.01, Math.min(0.70, g)));
-          }
+          pendingHandle = dragRef.current; pendingV = v;
+          if (!rafId) rafId = requestAnimationFrame(flush);
         };
-        const onTouchEnd = () => { dragRef.current = null; };
+        const onTouchEnd = () => { dragRef.current = null; if (rafId) { cancelAnimationFrame(rafId); rafId = null; } };
         el.addEventListener('touchmove', onTouchMove, { passive: false });
         el.addEventListener('touchend', onTouchEnd);
         el.addEventListener('touchcancel', onTouchEnd);
         return () => {
+          if (rafId) cancelAnimationFrame(rafId);
           el.removeEventListener('touchmove', onTouchMove);
           el.removeEventListener('touchend', onTouchEnd);
           el.removeEventListener('touchcancel', onTouchEnd);
@@ -1079,44 +1089,43 @@
         <div style={{ fontFamily: 'Artex, system-ui, sans-serif', backgroundColor: '#fff' }}>
 
           {/* ── Chart — explicit CSS height ~2/3 of usable viewport ── */}
-          <div style={{ height: 'calc((100svh - 240px) * 0.65)', minHeight: '160px', borderBottom: '1px solid #f3f4f6', overflow: 'hidden' }}>
+          <div style={{ height: 'clamp(160px, calc((100dvh - 240px) * 0.65), 70vh)', borderBottom: '1px solid #f3f4f6', overflow: 'hidden' }}>
             <MobileSimpleChart rev0={rev0} exp0={exp0} expGrowth={expGrowth} growth={growth} breakevenMonth={breakevenMonth}
               onRev={setRev0} onExp={setExp0} onGrowth={setGrowth} />
           </div>
 
-          {/* ── Sliders — natural height, no flex compression ── */}
-          <div style={{ padding: '10px 20px 6px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px' }}>
-                <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Monthly Revenue</span>
-                <span style={{ fontSize: '14px', fontWeight: 700, color: '#b8cc1a', fontFamily: 'Feature Display, serif' }}>{fmtMoney(rev0)}</span>
+          {/* ── Sliders — compact single-line rows ── */}
+          {(() => {
+            const row = (label, value, valueColor, input) => (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', width: '56px', flexShrink: 0 }}>{label}</span>
+                <div style={{ flex: 1 }}>{input}</div>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: valueColor, fontFamily: 'Feature Display, serif', whiteSpace: 'nowrap', width: '44px', textAlign: 'right', flexShrink: 0 }}>{value}</span>
               </div>
-              <input type="range" className="m-slider s-rev" min="0" max="1000"
-                value={Math.round(logToSlider(rev0, REV_MIN, REV_MAX))}
-                onChange={e => setRev0(sliderToLog(Number(e.target.value), REV_MIN, REV_MAX))}
-                style={sliderBg(revFill, '#ebff52')} />
-            </div>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px' }}>
-                <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Monthly Expenses</span>
-                <span style={{ fontSize: '14px', fontWeight: 700, color: '#ff5252', fontFamily: 'Feature Display, serif' }}>{fmtMoney(exp0)}</span>
+            );
+            return (
+              <div style={{ padding: '10px 16px 8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {row('Revenue', fmtMoney(rev0), '#b8cc1a',
+                  <input type="range" className="m-slider s-rev" min="0" max="1000"
+                    value={Math.round(logToSlider(rev0, REV_MIN, REV_MAX))}
+                    onChange={e => setRev0(sliderToLog(Number(e.target.value), REV_MIN, REV_MAX))}
+                    style={sliderBg(revFill, '#ebff52')} />
+                )}
+                {row('Expenses', fmtMoney(exp0), '#ff5252',
+                  <input type="range" className="m-slider s-exp" min="0" max="1000"
+                    value={Math.round(logToSlider(exp0, EXP_MIN, EXP_MAX))}
+                    onChange={e => setExp0(sliderToLog(Number(e.target.value), EXP_MIN, EXP_MAX))}
+                    style={sliderBg(expFill, '#ff5252')} />
+                )}
+                {row('Growth', `${pct}%`, '#111',
+                  <input type="range" className="m-slider" min="1" max="50"
+                    value={pct}
+                    onChange={e => setGrowth(Number(e.target.value) / 100)}
+                    style={sliderBg(gFill, '#111827')} />
+                )}
               </div>
-              <input type="range" className="m-slider s-exp" min="0" max="1000"
-                value={Math.round(logToSlider(exp0, EXP_MIN, EXP_MAX))}
-                onChange={e => setExp0(sliderToLog(Number(e.target.value), EXP_MIN, EXP_MAX))}
-                style={sliderBg(expFill, '#ff5252')} />
-            </div>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px' }}>
-                <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Monthly Growth Rate</span>
-                <span style={{ fontSize: '14px', fontWeight: 700, color: '#111', fontFamily: 'Feature Display, serif' }}>{pct}%</span>
-              </div>
-              <input type="range" className="m-slider" min="1" max="50"
-                value={pct}
-                onChange={e => setGrowth(Number(e.target.value) / 100)}
-                style={sliderBg(gFill, '#111827')} />
-            </div>
-          </div>
+            );
+          })()}
 
           {/* ── Result bar ── */}
           <div style={{ padding: '12px 20px 16px', background: verdictBg, borderTop: `1px solid ${verdictBorder}`, borderBottom: `1px solid ${verdictBorder}` }}>
