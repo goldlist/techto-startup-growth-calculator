@@ -277,7 +277,7 @@
       const bxWithin = breakevenMonth !== null && breakevenMonth > 0 && breakevenMonth <= nMonths;
 
       return (
-        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '100%', display: 'block', touchAction: 'none' }}
+        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: window.innerWidth < 640 ? '100%' : 'auto', display: 'block', touchAction: 'none' }}
           onMouseMove={onMouseMove} onMouseUp={onDragEnd} onMouseLeave={onDragEnd}>
           <defs>
             <linearGradient id="mCapGrad" x1="0" y1="0" x2="0" y2="1">
@@ -1016,10 +1016,24 @@
         ? (alreadyProfitable ? 'Profitable' : 'Default Alive')
         : verdictLevel === 'yellow' ? 'Needs Runway' : (neverBreakeven ? 'Default Dead' : 'Danger Zone');
 
+      // $100M ARR milestone
+      const hundredMARR = 100_000_000 / 12;
+      const monthsTo100M = rev0 >= hundredMARR ? 0
+        : growth > 0 ? Math.log(hundredMARR / Math.max(rev0, 1)) / Math.log(1 + growth) : null;
+      const fmtMo = mo => mo < 12 ? `${Math.ceil(mo)} mo` : mo < 24 ? `${Math.floor(mo/12)}y ${Math.round(mo%12)}mo` : `${Math.round(mo/12)} yrs`;
+
       let headline = '', subline = '';
       if (alreadyProfitable) {
-        headline = 'Already profitable';
-        subline  = `Growing at ${Math.round(growth * 100)}% per month`;
+        if (monthsTo100M === 0) {
+          headline = '$100M ARR — already there';
+          subline  = `Growing at ${Math.round(growth * 100)}% per month`;
+        } else if (monthsTo100M !== null) {
+          headline = `$100M ARR in ${fmtMo(monthsTo100M)}`;
+          subline  = `Profitable · growing at ${Math.round(growth * 100)}% / mo`;
+        } else {
+          headline = 'Profitable';
+          subline  = `Growing at ${Math.round(growth * 100)}% per month`;
+        }
       } else if (neverBreakeven) {
         headline = "Revenue won't catch expenses";
         subline  = 'Raise growth rate or cut costs';
@@ -1043,7 +1057,7 @@
         <div style={{ fontFamily: 'Artex, system-ui, sans-serif', backgroundColor: '#fff' }}>
 
           {/* ── Chart — explicit CSS height ~2/3 of usable viewport ── */}
-          <div style={{ height: 'clamp(160px, calc(100dvh - 440px), 65vh)', borderBottom: '1px solid #f3f4f6', overflow: 'hidden' }}>
+          <div style={{ height: window.innerWidth < 640 ? 'clamp(160px, calc(100dvh - 440px), 65vh)' : 'auto', borderBottom: '1px solid #f3f4f6', overflow: 'hidden' }}>
             <MobileSimpleChart rev0={rev0} exp0={exp0} expGrowth={expGrowth} growth={growth} breakevenMonth={breakevenMonth}
               onRev={setRev0} onExp={setExp0} onGrowth={setGrowth} />
           </div>
