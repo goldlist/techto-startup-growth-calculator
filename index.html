@@ -523,51 +523,6 @@
             </text>
           )}
 
-          {/* ── Legend: always on mobile, slanted labels when earlyTight, expense when tightLines, capital when tightCap ── */}
-          {(earlyTight || isMobile || tightCap) && (() => {
-            const pct = Math.round(g * 100);
-            const lines = [
-              ...(earlyTight || isMobile ? [
-                { text: `${fmtMoney(rev0)} revenue / mo`, dot: '#ebff52', stroke: '#b8cc1a' },
-              ] : []),
-              ...(tightLines || isMobile ? [
-                { text: `${fmtMoney(exp0)} expenses / mo`, dot: '#ff5252', stroke: '#cc1a1a' },
-              ] : []),
-              ...(isMobile ? [{ text: `${pct}% / mo growth`, dot: '#555', stroke: '#333' }] : []),
-              ...(rev0 < exp0 && breakevenMonth !== null && breakevenMonth > 0 && capitalNeeded > 0
-                ? [{ text: `${fmtMoney(capitalNeeded)} capital needed`, dot: '#d2f5ff', stroke: '#aac8d8' }]
-                : []),
-            ];
-            if (lines.length === 0) return null;
-            const lineH = fsAnnot + 7;
-            const pad = 9;
-            const maxW = Math.max(...lines.map(l => l.text.length)) * fsAnnot * 0.54 + pad * 2 + 14;
-            const boxH = lines.length * lineH + pad * 1.5;
-            // Mobile: top-right when profitable label is visible (avoids overlap), else bottom-right
-            // Desktop: just above whichever line is highest at the left edge
-            const bx = isMobile ? plotR - maxW - 10 : plotL + 10;
-            const topLineY = Math.min(p0Y, expY0);
-            const by = isMobile
-              ? (bxWithin ? plotT + 10 : plotB - boxH - 16)
-              : Math.max(plotT + 4, topLineY - boxH - 28);
-            return (
-              <g style={{ pointerEvents: 'none' }}>
-                <rect x={bx - 2} y={by - 2} width={maxW + 4} height={boxH + 4}
-                  fill="white" rx="7" stroke="#e5e7eb" strokeWidth={isMobile ? 1.5 : 1}
-                  filter="url(#legendShadow)" />
-                {lines.map((line, i) => (
-                  <g key={i}>
-                    <circle cx={bx + pad + 4} cy={by + pad + lineH * i + lineH / 2}
-                      r={4} fill={line.dot} stroke={line.stroke} strokeWidth="1" />
-                    <text x={bx + pad + 13} y={by + pad + lineH * i + lineH / 2}
-                      fontSize={fsAnnot} fontFamily={font} fontWeight="bold" fill="#000" dominantBaseline="middle">
-                      {line.text}
-                    </text>
-                  </g>
-                ))}
-              </g>
-            );
-          })()}
 
           {/* ── Protractor ── Trevor: tick marks at arc edge + labels, arc counterclockwise */}
           {rateLines.map(({ gr, angle, label }) => (
@@ -727,6 +682,54 @@
               {summaryText.toUpperCase()}
             </text>
           )}
+
+          {/* ── Legend: rendered last so it paints over everything ── */}
+          {(earlyTight || isMobile || tightCap) && (() => {
+            const pct = Math.round(g * 100);
+            const lines = [
+              ...(earlyTight || isMobile ? [
+                { text: `${fmtMoney(rev0)} revenue / mo`, dot: '#ebff52', stroke: '#b8cc1a' },
+              ] : []),
+              ...(tightLines || isMobile ? [
+                { text: `${fmtMoney(exp0)} expenses / mo`, dot: '#ff5252', stroke: '#cc1a1a' },
+              ] : []),
+              ...(isMobile ? [{ text: `${pct}% / mo growth`, dot: '#555', stroke: '#333' }] : []),
+              ...(rev0 < exp0 && breakevenMonth !== null && breakevenMonth > 0 && capitalNeeded > 0
+                ? [{ text: `${fmtMoney(capitalNeeded)} capital needed`, dot: '#d2f5ff', stroke: '#aac8d8' }]
+                : []),
+            ];
+            if (lines.length === 0) return null;
+            const lineH = fsAnnot + 7;
+            const pad = 9;
+            const maxW = Math.max(...lines.map(l => l.text.length)) * fsAnnot * 0.54 + pad * 2 + 14;
+            const boxH = lines.length * lineH + pad * 1.5;
+            const bx = isMobile ? plotR - maxW - 10 : plotL + 10;
+            const topLineY = Math.min(p0Y, expY0);
+            const mobileTopY = (ipoWithin || (ipoMonth !== null && ipoMonth > 0)) ? plotT + 46 : plotT + 10;
+            const mobileBottomY = plotB - boxH - 16;
+            const profitableLabelY = bxWithin ? convFlowToY(exp0) + 20 : null;
+            const profitableInLowerHalf = profitableLabelY && profitableLabelY > (plotT + plotB) / 2;
+            const by = isMobile
+              ? (bxWithin ? (profitableInLowerHalf ? mobileTopY : mobileBottomY) : mobileBottomY)
+              : Math.max(plotT + 4, topLineY - boxH - 28);
+            return (
+              <g style={{ pointerEvents: 'none' }}>
+                <rect x={bx - 2} y={by - 2} width={maxW + 4} height={boxH + 4}
+                  fill="white" rx="7" stroke="#e5e7eb" strokeWidth={isMobile ? 1.5 : 1}
+                  filter="url(#legendShadow)" />
+                {lines.map((line, i) => (
+                  <g key={i}>
+                    <circle cx={bx + pad + 4} cy={by + pad + lineH * i + lineH / 2}
+                      r={4} fill={line.dot} stroke={line.stroke} strokeWidth="1" />
+                    <text x={bx + pad + 13} y={by + pad + lineH * i + lineH / 2}
+                      fontSize={fsAnnot} fontFamily={font} fontWeight="bold" fill="#000" dominantBaseline="middle">
+                      {line.text}
+                    </text>
+                  </g>
+                ))}
+              </g>
+            );
+          })()}
         </svg>
           {/* Mobile callout */}
           {isMobile && summaryText && (
