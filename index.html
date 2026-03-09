@@ -968,14 +968,6 @@
       return (
         <div style={{ fontFamily: 'Artex, system-ui, sans-serif', backgroundColor: '#fff', paddingBottom: '220px' }}>
 
-          {/* ── Header ── */}
-          <div style={{ padding: '20px 16px 12px', borderBottom: '1px solid #f3f4f6' }}>
-            <h1 style={{ fontFamily: 'Feature Display, serif', fontSize: '22px', fontWeight: 'normal', margin: '0 0 4px 0', lineHeight: 1.1 }}>Startup Growth Calculator</h1>
-            <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>
-              Inspired by <a href="https://growth.tlb.org/" style={{ color: 'inherit', textDecoration: 'underline' }}>Trevor Blackwell's calculator</a> and <a href="https://www.paulgraham.com/aord.html" style={{ color: 'inherit', textDecoration: 'underline' }}>Paul Graham's essay</a>. Modernized for founders by TechTO.
-            </p>
-          </div>
-
           {/* ── Chart ── */}
           <div style={{ padding: '10px 12px 4px', borderBottom: '1px solid #f3f4f6' }}>
             <MobileSimpleChart rev0={rev0} exp0={exp0} expGrowth={expGrowth} growth={growth} breakevenMonth={breakevenMonth} />
@@ -1012,11 +1004,6 @@
                 value={pct}
                 onChange={e => setGrowth(Number(e.target.value) / 100)}
                 style={sliderBg(gFill, '#111827')} />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', paddingBottom: '20px', borderBottom: '1px solid #f3f4f6' }}>
-              <a onClick={onToggle} style={{ fontSize: '11px', color: '#9ca3af', cursor: 'pointer', textDecoration: 'underline' }}>desktop</a>
-              <a onClick={() => { setRev0(10000); setExp0(50000); setGrowth(0.10); setExpGrowth(0); }}
-                style={{ fontSize: '11px', color: '#9ca3af', cursor: 'pointer', textDecoration: 'underline' }}>reset</a>
             </div>
           </div>
 
@@ -1166,24 +1153,12 @@
         return Math.log(targetMonthly / rev0) / Math.log(1 + growth);
       });
 
-      if (useMobileUI) return (
-        <div className={`view-wrap${viewVisible ? '' : ' view-hidden'}`}>
-          <MobileView
-            rev0={rev0} exp0={exp0} growth={growth} expGrowth={expGrowth}
-            setRev0={setRev0} setExp0={setExp0} setGrowth={setGrowth} setExpGrowth={setExpGrowth}
-            breakevenMonth={breakevenMonth} capitalNeeded={capitalNeeded} defaultAlive={defaultAlive}
-            milestoneMonths={milestoneMonths} MILESTONES={MILESTONES}
-            fmtTimeLong={fmtTimeLong} fmtRevenue={fmtRevenue}
-            scrolled={scrolled} onToggle={() => switchView(false)} />
-        </div>
-      );
-
       return (
-        <div className={`view-wrap${viewVisible ? '' : ' view-hidden'}`}>
         <div style={{ backgroundColor: '#fff', fontFamily: 'Artex, system-ui, sans-serif' }}>
-          <main className="max-w-5xl mx-auto pt-2 pb-3" style={{ paddingBottom: '240px' }}>
 
-            <div className="px-4" style={{ marginBottom: '12px', marginTop: '24px' }}>
+          {/* ── Persistent: header + controls (never transitions) ── */}
+          <div className="max-w-5xl mx-auto">
+            <div className="px-4" style={{ marginBottom: '0', marginTop: '24px' }}>
               <h1 style={{ fontFamily: 'Feature Display, serif', fontSize: '28px', fontWeight: 'normal', margin: '0 0 4px 0', lineHeight: 1.1 }}>
                 Startup Growth Calculator
               </h1>
@@ -1191,32 +1166,19 @@
                 Inspired by <a href="https://growth.tlb.org/" style={{ color: 'inherit', textDecoration: 'underline' }}>Trevor Blackwell's calculator</a> and <a href="https://www.paulgraham.com/aord.html" style={{ color: 'inherit', textDecoration: 'underline' }}>Paul Graham's essay</a>. Modernized for founders by TechTO.
               </p>
             </div>
-
-            <div className="fadein-1 px-3 md:px-0">
-              <GrowthChart rev0={rev0} exp0={exp0} expGrowth={expGrowth} growth={growth}
-                onRev={setRev0} onExp={setExp0} onGrowth={setGrowth}
-                capitalNeeded={capitalNeeded}
-                summaryText={
-                  defaultAlive && breakevenMonth > 0
-                    ? `Profitable in ${Math.ceil(breakevenMonth)} months at ${Math.round(growth * 100)}% growth · ${fmt(capitalNeeded)} needed`
-                    : defaultAlive && breakevenMonth === 0
-                    ? `Already profitable at ${Math.round(growth * 100)}% monthly growth`
-                    : `Costs growing faster than revenue — no profitability`
-                } />
-            </div>
-
-            {/* Exact number entry — aligned with y-axis on desktop */}
-            <div className="exact-numbers-wrap" style={{ marginTop: '0px' }}>
-              {/* Top row: toggle left, reset right — always stable */}
+            <div className="exact-numbers-wrap" style={{ marginTop: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingRight: 'calc(20 / 900 * 100%)' }}>
-                <a onClick={() => setShowExact(s => !s)}
-                  style={{ fontSize: '11px', color: '#9ca3af', cursor: 'pointer', textDecoration: 'underline' }}>
-                  {showExact ? 'hide exact numbers' : 'enter exact numbers'}
-                </a>
+                {!useMobileUI
+                  ? <a onClick={() => setShowExact(s => !s)}
+                      style={{ fontSize: '11px', color: '#9ca3af', cursor: 'pointer', textDecoration: 'underline' }}>
+                      {showExact ? 'hide exact numbers' : 'enter exact numbers'}
+                    </a>
+                  : <span />
+                }
                 <div style={{ display: 'flex', gap: '12px' }}>
-                  <a onClick={() => switchView(true)}
+                  <a onClick={() => switchView(!useMobileUI)}
                     style={{ fontSize: '11px', color: '#9ca3af', cursor: 'pointer', textDecoration: 'underline' }}>
-                    mobile
+                    {useMobileUI ? 'desktop' : 'mobile'}
                   </a>
                   <a onClick={() => { setRev0(10000); setExp0(50000); setGrowth(0.10); setExpGrowth(0); }}
                     style={{ fontSize: '11px', color: '#9ca3af', cursor: 'pointer', textDecoration: 'underline' }}>
@@ -1224,8 +1186,8 @@
                   </a>
                 </div>
               </div>
-              {/* Drawer — slides open below */}
-              {showExact && (() => {
+              {/* Exact number drawer — desktop only */}
+              {!useMobileUI && showExact && (() => {
                 const parseMoney = s => {
                   s = s.replace(/[$,\s]/g, '').toLowerCase();
                   if (s.endsWith('k')) return parseFloat(s) * 1000;
@@ -1291,17 +1253,35 @@
                 );
               })()}
             </div>
+          </div>
+
+          {/* ── Transitioning view ── */}
+          <div className={`view-wrap${viewVisible ? '' : ' view-hidden'}`}>
+          {useMobileUI ? (
+            <MobileView
+              rev0={rev0} exp0={exp0} growth={growth} expGrowth={expGrowth}
+              setRev0={setRev0} setExp0={setExp0} setGrowth={setGrowth} setExpGrowth={setExpGrowth}
+              breakevenMonth={breakevenMonth} capitalNeeded={capitalNeeded} defaultAlive={defaultAlive}
+              milestoneMonths={milestoneMonths} MILESTONES={MILESTONES}
+              fmtTimeLong={fmtTimeLong} fmtRevenue={fmtRevenue}
+              scrolled={scrolled} />
+          ) : (
+          <main className="max-w-5xl mx-auto pt-2 pb-3" style={{ paddingBottom: '240px' }}>
+
+            <div className="fadein-1 px-3 md:px-0">
+              <GrowthChart rev0={rev0} exp0={exp0} expGrowth={expGrowth} growth={growth}
+                onRev={setRev0} onExp={setExp0} onGrowth={setGrowth}
+                capitalNeeded={capitalNeeded}
+                summaryText={
+                  defaultAlive && breakevenMonth > 0
+                    ? `Profitable in ${Math.ceil(breakevenMonth)} months at ${Math.round(growth * 100)}% growth · ${fmt(capitalNeeded)} needed`
+                    : defaultAlive && breakevenMonth === 0
+                    ? `Already profitable at ${Math.round(growth * 100)}% monthly growth`
+                    : `Costs growing faster than revenue — no profitability`
+                } />
+            </div>
 
             <div className="px-4">
-            {/* Mobile title — shown on mobile only, above milestones */}
-            <div className="block md:hidden" style={{ marginBottom: '16px', marginTop: '16px' }}>
-              <h1 style={{ fontFamily: 'Feature Display, serif', fontSize: '24px', fontWeight: 'normal', margin: '0 0 4px 0', lineHeight: 1.1 }}>
-                Startup Growth Calculator
-              </h1>
-              <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>
-                Inspired by <a href="https://growth.tlb.org/" style={{ color: 'inherit', textDecoration: 'underline' }}>Trevor Blackwell's calculator</a> and <a href="https://www.paulgraham.com/aord.html" style={{ color: 'inherit', textDecoration: 'underline' }}>Paul Graham's essay</a>. Modernized for founders by TechTO.
-              </p>
-            </div>
             {/* Milestones Panel */}
             <div style={{ marginBottom: '20px', marginTop: '16px' }}>
               <p style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -1434,8 +1414,9 @@
               backgroundPosition: '50% 0', backgroundRepeat: 'no-repeat', backgroundSize: 'cover',
             }} />
           </div>
+          )}{/* end desktop ternary */}
+          </div>{/* end view-wrap */}
         </div>
-        </div>{/* end view-wrap */}
       );
     }
 
