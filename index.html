@@ -194,27 +194,63 @@
       const expAtMonth   = m => exp0 * Math.pow(1 + expGrowth, m);
       const fmtM = v => v >= 1e6 ? '$'+Math.round(v/1e6)+'M' : v >= 1e4 ? '$'+(v/1e3).toFixed(0)+'k' : v >= 1e3 ? '$'+(v/1e3).toFixed(1)+'k' : '$'+Math.round(v);
 
-      // Drag helpers
-      const yToFlow = y => Math.exp(logMinRef.current + Math.max(0, Math.min(1, (plotB - y) / (plotB - plotT))) * (logMaxRef.current - logMinRef.current));
-      const getSvgY = e => {
+      // Drag helpers — keep stable refs so useEffect doesn't re-register
+      const onRevRef = useRef(onRev); onRevRef.current = onRev;
+      const onExpRef = useRef(onExp); onExpRef.current = onExp;
+      const onGrowthRef = useRef(onGrowth); onGrowthRef.current = onGrowth;
+      const rev0Ref = useRef(rev0); rev0Ref.current = rev0;
+
+      const yToFlow = y => {
+        const t = Math.max(0, Math.min(1, (plotB - y) / (plotB - plotT)));
+        const v = Math.exp(logMinRef.current + t * (logMaxRef.current - logMinRef.current));
+        return isFinite(v) ? v : 500;
+      };
+      const getSvgY = (clientY) => {
         const el = svgRef.current; if (!el) return plotB;
         const rect = el.getBoundingClientRect();
-        const src = e.touches ? e.touches[0] : e;
-        return (src.clientY - rect.top) * (H / rect.height);
+        return (clientY - rect.top) * (H / rect.height);
       };
       const onDragStart = (handle, e) => { e.preventDefault(); e.stopPropagation(); dragRef.current = handle; };
-      const onDragMove  = e => {
+      const onDragEnd   = () => { dragRef.current = null; };
+
+      // Attach touchmove with passive:false to allow preventDefault (prevents page scroll while dragging)
+      useEffect(() => {
+        const el = svgRef.current; if (!el) return;
+        const onTouchMove = e => {
+          if (!dragRef.current) return;
+          e.preventDefault();
+          const touch = e.touches[0]; if (!touch) return;
+          const v = Math.max(500, Math.min(2000000, yToFlow(getSvgY(touch.clientY))));
+          if (!isFinite(v)) return;
+          if (dragRef.current === 'rev') onRevRef.current && onRevRef.current(v);
+          else if (dragRef.current === 'exp') onExpRef.current && onExpRef.current(v);
+          else if (dragRef.current === 'growth') {
+            const g = Math.pow(v / Math.max(rev0Ref.current, 1), 1 / nMonths) - 1;
+            if (isFinite(g)) onGrowthRef.current && onGrowthRef.current(Math.max(0.01, Math.min(0.70, g)));
+          }
+        };
+        const onTouchEnd = () => { dragRef.current = null; };
+        el.addEventListener('touchmove', onTouchMove, { passive: false });
+        el.addEventListener('touchend', onTouchEnd);
+        el.addEventListener('touchcancel', onTouchEnd);
+        return () => {
+          el.removeEventListener('touchmove', onTouchMove);
+          el.removeEventListener('touchend', onTouchEnd);
+          el.removeEventListener('touchcancel', onTouchEnd);
+        };
+      }, []); // eslint-disable-line
+
+      const onMouseMove = e => {
         if (!dragRef.current) return;
-        e.preventDefault();
-        const v = Math.max(500, Math.min(2000000, yToFlow(getSvgY(e))));
+        const v = Math.max(500, Math.min(2000000, yToFlow(getSvgY(e.clientY))));
+        if (!isFinite(v)) return;
         if (dragRef.current === 'rev' && onRev) onRev(v);
         else if (dragRef.current === 'exp' && onExp) onExp(v);
         else if (dragRef.current === 'growth' && onGrowth) {
           const g = Math.pow(v / Math.max(rev0, 1), 1 / nMonths) - 1;
-          onGrowth(Math.max(0.01, Math.min(0.70, g)));
+          if (isFinite(g)) onGrowth(Math.max(0.01, Math.min(0.70, g)));
         }
       };
-      const onDragEnd = () => { dragRef.current = null; };
 
       // Y-axis ticks
       const flowMin = Math.exp(logMinRef.current), flowMax = Math.exp(logMaxRef.current);
@@ -244,8 +280,7 @@
 
       return (
         <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', display: 'block', touchAction: 'none' }}
-          onMouseMove={onDragMove} onMouseUp={onDragEnd} onMouseLeave={onDragEnd}
-          onTouchMove={onDragMove} onTouchEnd={onDragEnd} onTouchCancel={onDragEnd}>
+          onMouseMove={onMouseMove} onMouseUp={onDragEnd} onMouseLeave={onDragEnd}>
           <defs>
             <linearGradient id="mCapGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="rgba(210,245,255,0.9)" />
