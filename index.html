@@ -1344,6 +1344,51 @@
               </div>
             )}
 
+            {/* ── Desktop results banner ── */}
+            {!useMobileUI && (() => {
+              const alreadyProfitable = rev0 >= exp0;
+              const neverBreakeven = breakevenMonth === null;
+              const fmtCap = v => v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : `$${Math.round(v/1000)}k`;
+              const hundredMARR = 100_000_000 / 12;
+              const monthsTo100M = rev0 >= hundredMARR ? 0 : growth > 0 ? Math.log(hundredMARR / Math.max(rev0, 1)) / Math.log(1 + growth) : null;
+              const fmtMo = mo => mo < 12 ? `${Math.ceil(mo)} mo` : mo < 24 ? `${Math.floor(mo/12)}y ${Math.round(mo%12)}mo` : `${Math.round(mo/12)} yrs`;
+
+              let verdictLevel;
+              if (alreadyProfitable) verdictLevel = 'green';
+              else if (neverBreakeven || breakevenMonth > 48 || capitalNeeded > 5_000_000) verdictLevel = 'red';
+              else if (breakevenMonth <= 24 && capitalNeeded <= 750_000) verdictLevel = 'green';
+              else verdictLevel = 'yellow';
+
+              const color  = verdictLevel === 'green' ? '#16a34a' : verdictLevel === 'yellow' ? '#b45309' : '#dc2626';
+              const bg     = verdictLevel === 'green' ? '#f0fdf4' : verdictLevel === 'yellow' ? '#fffbeb' : '#fef2f2';
+              const border = verdictLevel === 'green' ? '#bbf7d0' : verdictLevel === 'yellow' ? '#fde68a' : '#fecaca';
+              const tag    = verdictLevel === 'green' ? (alreadyProfitable ? 'Profitable' : 'Default Alive') : verdictLevel === 'yellow' ? 'Needs Runway' : (neverBreakeven ? 'Default Dead' : 'Danger Zone');
+
+              let headline = '', subline = '';
+              if (alreadyProfitable) {
+                if (monthsTo100M === 0) { headline = '$100M ARR — already there'; subline = `Growing at ${Math.round(growth * 100)}% per month`; }
+                else if (monthsTo100M !== null) { headline = `$100M ARR in ${fmtMo(monthsTo100M)}`; subline = `Profitable · growing at ${Math.round(growth * 100)}% / mo`; }
+                else { headline = 'Profitable'; subline = `Growing at ${Math.round(growth * 100)}% per month`; }
+              } else if (neverBreakeven) {
+                headline = "Revenue won't catch expenses"; subline = 'Raise growth rate or cut costs';
+              } else if (verdictLevel === 'green') {
+                headline = `Profitable in ${Math.ceil(breakevenMonth)} months`; subline = capitalNeeded > 0 ? `${fmtCap(capitalNeeded)} capital needed` : '';
+              } else if (verdictLevel === 'yellow') {
+                headline = `${Math.ceil(breakevenMonth)} months to profitability`; subline = `${fmtCap(capitalNeeded)} runway needed — consider raising`;
+              } else {
+                headline = breakevenMonth > 48 ? `${Math.ceil(breakevenMonth)} months to break even` : "Revenue can't catch expenses";
+                subline  = breakevenMonth > 48 ? `${fmtCap(capitalNeeded)} needed — requires major raise` : 'Cut costs or dramatically raise growth rate';
+              }
+
+              return (
+                <div style={{ margin: '12px 0 0', padding: '16px 24px 20px', background: bg, borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}` }}>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '6px' }}>{tag}</div>
+                  <div style={{ fontFamily: 'Feature Display, serif', fontSize: '28px', lineHeight: 1.15, color: '#111', marginBottom: subline ? '6px' : 0 }}>{headline}</div>
+                  {subline && <div style={{ fontSize: '14px', color: '#6b7280' }}>{subline}</div>}
+                </div>
+              );
+            })()}
+
             <div className="px-4" style={{ borderTop: useMobileUI ? '4px solid #f3f4f6' : 'none', paddingTop: useMobileUI ? '20px' : 0 }}>
             {/* Milestones Panel */}
             <div style={{ marginBottom: '20px', marginTop: '16px' }}>
