@@ -41,9 +41,6 @@
     #root { padding-top: 90px; padding-bottom: 140px; }
     .exact-numbers-wrap { padding-left: 16px; }
     .milestones-push { margin-top: 16px; }
-    @media (max-width: 639px) {
-      .milestones-push { margin-top: calc(100svh - 80px - 350px); }
-    }
     @media (min-width: 640px) {
       .exact-numbers-wrap { padding-left: calc(77 / 900 * 100%); }
     }
@@ -1360,7 +1357,7 @@
 
             <div className="px-4">
             {/* Milestones Panel */}
-            <div className="milestones-push" style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '20px', marginTop: (!useMobileUI && isMobile) ? 'calc(100svh - 80px - 350px)' : '16px' }}>
               <p style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 At your current growth rate, here's when you'll hit milestones.
               </p>
