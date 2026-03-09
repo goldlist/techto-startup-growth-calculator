@@ -1315,7 +1315,8 @@
                 setRev0={setRev0} setExp0={setExp0} setGrowth={setGrowth} setExpGrowth={setExpGrowth}
                 breakevenMonth={breakevenMonth} capitalNeeded={capitalNeeded} defaultAlive={defaultAlive} />
             ) : (
-              <div className="fadein-1 px-3 md:px-0">
+              <div className="fadein-1 px-3 md:px-0"
+                style={{ maxHeight: isMobile ? 'calc(100dvh - 360px)' : 'none', overflow: isMobile ? 'hidden' : 'visible' }}>
                 <GrowthChart rev0={rev0} exp0={exp0} expGrowth={expGrowth} growth={growth}
                   onRev={setRev0} onExp={setExp0} onGrowth={setGrowth}
                   capitalNeeded={capitalNeeded} />
