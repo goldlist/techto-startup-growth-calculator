@@ -52,6 +52,13 @@
     .fadein-1 { animation: techtoFadeUp 0.55s cubic-bezier(.25,.46,.45,.94) 0.05s both; }
     .fadein-2 { animation: techtoFadeUp 0.55s cubic-bezier(.25,.46,.45,.94) 0.15s both; }
     .fadein-6 { animation: techtoFadeUp 0.55s cubic-bezier(.25,.46,.45,.94) 0.55s both; }
+    /* ── Mobile sliders ── */
+    .m-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 2px; outline: none; cursor: pointer; }
+    .m-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 28px; height: 28px; border-radius: 50%; background: #111827; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.2); transition: transform 0.1s; }
+    .m-slider:active::-webkit-slider-thumb { transform: scale(1.15); }
+    .m-slider::-moz-range-thumb { width: 28px; height: 28px; border-radius: 50%; background: #111827; cursor: pointer; border: none; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+    .m-slider.s-green::-webkit-slider-thumb, .m-slider.s-green::-moz-range-thumb { background: #16a34a; }
+    .m-slider.s-orange::-webkit-slider-thumb, .m-slider.s-orange::-moz-range-thumb { background: #f97316; }
   </style>
   <script>
     let vh = window.innerHeight * 0.01;
@@ -132,6 +139,66 @@
       const logRange = Math.max(lMax - lMin, 2);
       const pad = logRange * 0.15;
       return { lMin: lMin - pad, lMax: lMax + pad };
+    }
+
+    // ─── Mobile-only simplified chart (display only, no interaction) ─────────────
+    function MobileSimpleChart({ rev0, exp0, expGrowth, growth, breakevenMonth }) {
+      const [, forceRender] = useState(0);
+      const logMinRef = useRef(null);
+      const logMaxRef = useRef(null);
+      const rafRef    = useRef(null);
+      const initialized = useRef(false);
+      if (!initialized.current) {
+        initialized.current = true;
+        const { lMin, lMax } = computeTargetLogRange(rev0, exp0, expGrowth, growth);
+        logMinRef.current = lMin;
+        logMaxRef.current = lMax;
+      }
+      useEffect(() => {
+        const { lMin: tMin, lMax: tMax } = computeTargetLogRange(rev0, exp0, expGrowth, growth);
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        const factor = 0.12, tol = 0.002;
+        function animate() {
+          const dMin = tMin - logMinRef.current, dMax = tMax - logMaxRef.current;
+          if (Math.abs(dMin) < tol && Math.abs(dMax) < tol) {
+            logMinRef.current = tMin; logMaxRef.current = tMax;
+            forceRender(n => n + 1); rafRef.current = null; return;
+          }
+          logMinRef.current += dMin * factor; logMaxRef.current += dMax * factor;
+          forceRender(n => n + 1);
+          rafRef.current = requestAnimationFrame(animate);
+        }
+        rafRef.current = requestAnimationFrame(animate);
+      }, [rev0, exp0, expGrowth, growth]);
+      useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
+
+      const W = 400, H = 190, plotL = 4, plotR = 396, plotT = 10, plotB = 178, nMonths = 36;
+      const convMonthToX = m => plotL + (m / nMonths) * (plotR - plotL);
+      const convFlowToY  = v => plotB - (Math.log(Math.max(v, 1)) - logMinRef.current) / (logMaxRef.current - logMinRef.current) * (plotB - plotT);
+      const revAtMonth   = m => rev0 * Math.pow(1 + growth, m);
+      const expAtMonth   = m => exp0 * Math.pow(1 + expGrowth, m);
+      const nPts = 72;
+      const revPts = Array.from({ length: nPts + 1 }, (_, i) => { const m = i * nMonths / nPts; return `${convMonthToX(m).toFixed(1)},${convFlowToY(revAtMonth(m)).toFixed(1)}`; }).join(' ');
+      const expPts = Array.from({ length: nPts + 1 }, (_, i) => { const m = i * nMonths / nPts; return `${convMonthToX(m).toFixed(1)},${convFlowToY(expAtMonth(m)).toFixed(1)}`; }).join(' ');
+      const bxEnd = (breakevenMonth !== null && breakevenMonth > 0) ? Math.min(breakevenMonth, nMonths) : 0;
+      let capitalPath = '';
+      if (bxEnd > 0) {
+        const steps = 60;
+        const top    = Array.from({ length: steps + 1 }, (_, i) => { const m = (i / steps) * bxEnd; return `${convMonthToX(m).toFixed(1)},${convFlowToY(revAtMonth(m)).toFixed(1)}`; });
+        const bottom = Array.from({ length: steps + 1 }, (_, i) => { const m = ((steps - i) / steps) * bxEnd; return `${convMonthToX(m).toFixed(1)},${convFlowToY(expAtMonth(m)).toFixed(1)}`; });
+        capitalPath = `M ${top.join(' L ')} L ${bottom.join(' L ')} Z`;
+      }
+      return (
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', display: 'block' }}>
+          {capitalPath && <path d={capitalPath} fill="rgba(59,130,246,0.10)" />}
+          <polyline points={expPts} fill="none" stroke="#f97316" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <polyline points={revPts} fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          {breakevenMonth !== null && breakevenMonth > 0 && breakevenMonth <= nMonths && (() => {
+            const bx = convMonthToX(breakevenMonth), by = convFlowToY(revAtMonth(breakevenMonth));
+            return <circle cx={bx} cy={by} r={6} fill="white" stroke="#111" strokeWidth="2" />;
+          })()}
+        </svg>
+      );
     }
 
     // ─── Faithful port of Trevor Blackwell's GrowthView.js ───────────────────────
@@ -742,6 +809,174 @@
       );
     }
 
+    // ─── Mobile view — verdict hero + sliders + simplified chart ─────────────────
+    function MobileView({ rev0, exp0, growth, expGrowth, setRev0, setExp0, setGrowth, setExpGrowth,
+        breakevenMonth, capitalNeeded, defaultAlive, milestoneMonths, MILESTONES,
+        fmtTimeLong, fmtRevenue, scrolled }) {
+
+      const fmtMoney = v => {
+        if (v >= 1e6) return '$' + Math.round(v / 1e6) + 'M';
+        if (v >= 1e4) return '$' + (v / 1e3).toFixed(0) + 'k';
+        if (v >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'k';
+        return '$' + Math.round(v);
+      };
+
+      const REV_MIN = 500, REV_MAX = 2000000;
+      const EXP_MIN = 500, EXP_MAX = 2000000;
+      const logToSlider = (v, min, max) => (Math.log(v / min) / Math.log(max / min)) * 1000;
+      const sliderToLog = (s, min, max) => Math.round(min * Math.pow(max / min, s / 1000));
+      const sliderBg = (pct, color) => ({ background: `linear-gradient(to right, ${color} ${pct.toFixed(1)}%, #e5e7eb ${pct.toFixed(1)}%)` });
+
+      const alreadyProfitable = rev0 >= exp0;
+      const verdictColor  = defaultAlive ? '#16a34a' : '#dc2626';
+      const verdictBg     = defaultAlive ? '#f0fdf4' : '#fef2f2';
+      const verdictBorder = defaultAlive ? '#bbf7d0' : '#fecaca';
+      const verdictTag    = defaultAlive ? 'Default Alive' : 'Default Dead';
+      let headline = '', subline = '';
+      if (alreadyProfitable) {
+        headline = 'Already profitable';
+        subline  = `Growing at ${Math.round(growth * 100)}% per month`;
+      } else if (defaultAlive && breakevenMonth > 0) {
+        headline = `Profitable in ${Math.ceil(breakevenMonth)} months`;
+        subline  = capitalNeeded > 0 ? `${fmtMoney(capitalNeeded)} capital needed` : '';
+      } else {
+        headline = "Revenue won't catch expenses";
+        subline  = 'Raise growth rate or cut expenses';
+      }
+
+      const pct     = Math.round(growth * 100);
+      const revFill = logToSlider(rev0, REV_MIN, REV_MAX) / 10;
+      const expFill = logToSlider(exp0, EXP_MIN, EXP_MAX) / 10;
+      const gFill   = (pct - 1) / 49 * 100;
+
+      const genericMilestones = [
+        { label: 'Default Alive', desc: 'reach profitability', arr: null },
+        { label: '$1M run rate',  desc: 'first million',       arr: 1_000_000 },
+        { label: '$10M run rate', desc: 'real traction',       arr: 10_000_000 },
+        { label: '$100M run rate',desc: 'category leader',     arr: 100_000_000 },
+      ];
+      const moForGeneric = genericMilestones.map(m => {
+        if (m.arr === null) return breakevenMonth;
+        const target = m.arr / 12;
+        if (rev0 >= target) return 0;
+        if (growth <= 0) return null;
+        return Math.log(target / rev0) / Math.log(1 + growth);
+      });
+
+      const milestoneCard = (passed, never, mo, label, desc, logo) => (
+        <div style={{ border: `1.5px solid ${passed ? '#22c55e' : '#e5e7eb'}`, borderRadius: '10px', padding: '14px 16px', background: passed ? '#f0fdf4' : '#fff', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '120px' }}>
+          {passed && <div style={{ position: 'absolute', top: '8px', right: '10px', fontSize: '11px', fontWeight: 'bold', color: '#16a34a' }}>✓ Passed</div>}
+          {logo && <img src={logo} alt={label} style={{ width: '22px', height: '22px', objectFit: 'contain', filter: passed ? 'none' : 'grayscale(100%)', marginBottom: '6px', display: 'block' }} onError={e => { e.target.style.display = 'none'; }} />}
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#111', lineHeight: 1.2 }}>{label}</div>
+            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{desc}</div>
+          </div>
+          <div style={{ fontSize: '17px', fontWeight: 'bold', fontFamily: 'Feature Display, serif', color: passed ? '#16a34a' : never ? '#9ca3af' : '#111', marginTop: '8px' }}>
+            {passed ? 'Already here' : never ? 'Never' : fmtTimeLong(mo)}
+          </div>
+        </div>
+      );
+
+      return (
+        <div style={{ fontFamily: 'Artex, system-ui, sans-serif', backgroundColor: '#fff', paddingBottom: '220px' }}>
+
+          {/* ── Verdict hero ── */}
+          <div style={{ padding: '20px 16px 16px', background: verdictBg, borderBottom: `1px solid ${verdictBorder}` }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: verdictColor, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '6px' }}>
+              {verdictTag}
+            </div>
+            <div style={{ fontFamily: 'Feature Display, serif', fontSize: '28px', lineHeight: 1.1, color: '#111', marginBottom: subline ? '6px' : 0 }}>
+              {headline}
+            </div>
+            {subline && <div style={{ fontSize: '13px', color: '#6b7280' }}>{subline}</div>}
+          </div>
+
+          {/* ── Simplified chart ── */}
+          <div style={{ padding: '10px 12px 4px', borderBottom: '1px solid #f3f4f6' }}>
+            <MobileSimpleChart rev0={rev0} exp0={exp0} expGrowth={expGrowth} growth={growth} breakevenMonth={breakevenMonth} />
+          </div>
+
+          {/* ── Sliders ── */}
+          <div style={{ padding: '20px 16px 0' }}>
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
+                <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Monthly Revenue</span>
+                <span style={{ fontSize: '15px', fontWeight: 700, color: '#16a34a', fontFamily: 'Feature Display, serif' }}>{fmtMoney(rev0)}</span>
+              </div>
+              <input type="range" className="m-slider s-green" min="0" max="1000"
+                value={Math.round(logToSlider(rev0, REV_MIN, REV_MAX))}
+                onChange={e => setRev0(sliderToLog(Number(e.target.value), REV_MIN, REV_MAX))}
+                style={sliderBg(revFill, '#22c55e')} />
+            </div>
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
+                <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Monthly Expenses</span>
+                <span style={{ fontSize: '15px', fontWeight: 700, color: '#f97316', fontFamily: 'Feature Display, serif' }}>{fmtMoney(exp0)}</span>
+              </div>
+              <input type="range" className="m-slider s-orange" min="0" max="1000"
+                value={Math.round(logToSlider(exp0, EXP_MIN, EXP_MAX))}
+                onChange={e => setExp0(sliderToLog(Number(e.target.value), EXP_MIN, EXP_MAX))}
+                style={sliderBg(expFill, '#f97316')} />
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
+                <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Monthly Growth Rate</span>
+                <span style={{ fontSize: '15px', fontWeight: 700, color: '#111', fontFamily: 'Feature Display, serif' }}>{pct}%</span>
+              </div>
+              <input type="range" className="m-slider" min="1" max="50"
+                value={pct}
+                onChange={e => setGrowth(Number(e.target.value) / 100)}
+                style={sliderBg(gFill, '#111827')} />
+            </div>
+            <div style={{ textAlign: 'right', paddingTop: '8px', paddingBottom: '20px', borderBottom: '1px solid #f3f4f6' }}>
+              <a onClick={() => { setRev0(10000); setExp0(50000); setGrowth(0.10); setExpGrowth(0); }}
+                style={{ fontSize: '11px', color: '#9ca3af', cursor: 'pointer', textDecoration: 'underline' }}>reset</a>
+            </div>
+          </div>
+
+          {/* ── Title + milestones ── */}
+          <div style={{ padding: '20px 16px 0' }}>
+            <h1 style={{ fontFamily: 'Feature Display, serif', fontSize: '22px', fontWeight: 'normal', margin: '0 0 4px 0', lineHeight: 1.1 }}>Startup Growth Calculator</h1>
+            <p style={{ fontSize: '11px', color: '#9ca3af', margin: '0 0 20px 0' }}>
+              Inspired by <a href="https://growth.tlb.org/" style={{ color: 'inherit', textDecoration: 'underline' }}>Trevor Blackwell's calculator</a> and <a href="https://www.paulgraham.com/aord.html" style={{ color: 'inherit', textDecoration: 'underline' }}>Paul Graham's essay</a>. Built for founders by TechTO.
+            </p>
+            <p style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              At your current growth rate, here's when you'll hit milestones.
+            </p>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              {genericMilestones.map((m, i) => {
+                const mo = moForGeneric[i]; return <React.Fragment key={i}>{milestoneCard(mo === 0, mo === null, mo, m.label, m.desc, null)}</React.Fragment>;
+              })}
+            </div>
+            <div className="grid grid-cols-2 gap-3" style={{ paddingBottom: '20px' }}>
+              {MILESTONES.map((m, i) => {
+                const mo = milestoneMonths[i]; return <React.Fragment key={i}>{milestoneCard(mo === 0, mo === null, mo, m.name, fmtRevenue(m.arr), m.logo)}</React.Fragment>;
+              })}
+            </div>
+          </div>
+
+          {/* ── Fixed footer when scrolled ── */}
+          {scrolled && (
+            <div className="fadein-6" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 10, background: '#fff' }}>
+              <div className="padding-global">
+                <div className="container-large">
+                  <div className="padding-bottom padding-medium">
+                    <div className="cta8_component">
+                      <div className="cta8_content">
+                        <div className="text-size-large">Meet leaders, share ideas, and connect with people who can open new doors.</div>
+                      </div>
+                      <a href="https://techto.org/events" className="button is-secondary w-button">See Upcoming Events</a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div style={{ height: '60px', backgroundImage: "url('https://cdn.prod.website-files.com/66f1864b4a6f3045a6a2ca3e/66f4193346a254b2220786a2_Grid.svg')", backgroundPosition: '50% 0', backgroundRepeat: 'no-repeat', backgroundSize: 'cover' }} />
+            </div>
+          )}
+        </div>
+      );
+    }
+
     // ─── App ──────────────────────────────────────────────────────────────────────
 
     function App() {
@@ -761,6 +996,13 @@
       const [expGrowth, setExpGrowth] = useState(defaults.eg);
       const [showExact, setShowExact] = useState(false);
       const [scrolled,  setScrolled]  = useState(false);
+      const [isMobile,  setIsMobile]  = useState(() => window.innerWidth < 640);
+
+      useEffect(() => {
+        const upd = () => setIsMobile(window.innerWidth < 640);
+        window.addEventListener('resize', upd);
+        return () => window.removeEventListener('resize', upd);
+      }, []);
 
       useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 150);
@@ -820,6 +1062,16 @@
         if (growth <= 0) return null; // never
         return Math.log(targetMonthly / rev0) / Math.log(1 + growth);
       });
+
+      if (isMobile) return (
+        <MobileView
+          rev0={rev0} exp0={exp0} growth={growth} expGrowth={expGrowth}
+          setRev0={setRev0} setExp0={setExp0} setGrowth={setGrowth} setExpGrowth={setExpGrowth}
+          breakevenMonth={breakevenMonth} capitalNeeded={capitalNeeded} defaultAlive={defaultAlive}
+          milestoneMonths={milestoneMonths} MILESTONES={MILESTONES}
+          fmtTimeLong={fmtTimeLong} fmtRevenue={fmtRevenue}
+          scrolled={scrolled} />
+      );
 
       return (
         <div style={{ backgroundColor: '#fff', fontFamily: 'Artex, system-ui, sans-serif' }}>
