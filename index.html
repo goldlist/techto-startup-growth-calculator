@@ -187,6 +187,9 @@
       const onExpRef = useRef(onExp); onExpRef.current = onExp;
       const onGrowthRef = useRef(onGrowth); onGrowthRef.current = onGrowth;
       const rev0Ref = useRef(rev0); rev0Ref.current = rev0;
+      const growthRef = useRef(growth); growthRef.current = growth;
+      const dragStartYRef = useRef(0);
+      const dragStartGrowthRef = useRef(growth);
 
       const yToFlow = y => {
         const t = Math.max(0, Math.min(1, (plotB - y) / (plotB - plotT)));
@@ -198,23 +201,32 @@
         const rect = el.getBoundingClientRect();
         return (clientY - rect.top) * (H / rect.height);
       };
-      const onDragStart = (handle, e) => { e.preventDefault(); e.stopPropagation(); dragRef.current = handle; };
+      const onDragStart = (handle, e) => {
+        e.preventDefault(); e.stopPropagation(); dragRef.current = handle;
+        if (handle === 'growth') {
+          dragStartYRef.current = e.touches ? e.touches[0].clientY : e.clientY;
+          dragStartGrowthRef.current = growthRef.current;
+        }
+      };
       const onDragEnd   = () => { dragRef.current = null; };
 
       // Attach touchmove with passive:false; throttle updates to one per rAF to prevent crash
       useEffect(() => {
         const el = svgRef.current; if (!el) return;
-        let rafId = null, pendingHandle = null, pendingV = null;
+        let rafId = null, pendingHandle = null, pendingV = null, pendingClientY = 0;
         const flush = () => {
           rafId = null;
           if (!pendingHandle) return;
-          const h = pendingHandle, v = pendingV;
+          const h = pendingHandle, v = pendingV, cy = pendingClientY;
           pendingHandle = null; pendingV = null;
           if (h === 'rev') onRevRef.current && onRevRef.current(v);
           else if (h === 'exp') onExpRef.current && onExpRef.current(v);
           else if (h === 'growth') {
-            const g = Math.pow(v / Math.max(rev0Ref.current, 1), 1 / nMonths) - 1;
-            if (isFinite(g)) onGrowthRef.current && onGrowthRef.current(Math.max(0.01, Math.min(0.70, g)));
+            const deltaY = cy - dragStartYRef.current;
+            const rawG = Math.max(0.01, Math.min(0.70, dragStartGrowthRef.current - deltaY * 0.002));
+            const rounded = Math.round(rawG * 100) / 100;
+            const newG = Math.abs(rounded - rawG) < 0.003 ? rounded : rawG;
+            if (isFinite(newG)) onGrowthRef.current && onGrowthRef.current(newG);
           }
         };
         const onTouchMove = e => {
@@ -223,7 +235,7 @@
           const touch = e.touches[0]; if (!touch) return;
           const v = Math.max(500, Math.min(2000000, yToFlow(getSvgY(touch.clientY))));
           if (!isFinite(v)) return;
-          pendingHandle = dragRef.current; pendingV = v;
+          pendingHandle = dragRef.current; pendingV = v; pendingClientY = touch.clientY;
           if (!rafId) rafId = requestAnimationFrame(flush);
         };
         const onTouchEnd = () => { dragRef.current = null; if (rafId) { cancelAnimationFrame(rafId); rafId = null; } };
@@ -245,8 +257,11 @@
         if (dragRef.current === 'rev' && onRev) onRev(v);
         else if (dragRef.current === 'exp' && onExp) onExp(v);
         else if (dragRef.current === 'growth' && onGrowth) {
-          const g = Math.pow(v / Math.max(rev0, 1), 1 / nMonths) - 1;
-          if (isFinite(g)) onGrowth(Math.max(0.01, Math.min(0.70, g)));
+          const deltaY = e.clientY - dragStartYRef.current;
+          const rawG = Math.max(0.01, Math.min(0.70, dragStartGrowthRef.current - deltaY * 0.002));
+          const rounded = Math.round(rawG * 100) / 100;
+          const newG = Math.abs(rounded - rawG) < 0.003 ? rounded : rawG;
+          if (isFinite(newG)) onGrowth(newG);
         }
       };
 
@@ -390,6 +405,7 @@
       const containerRef = useRef(null);
       const dragging = useRef(null);
       const [containerW, setContainerW] = useState(() => typeof window !== 'undefined' ? window.innerWidth : 900);
+      const [viewportH, setViewportH] = useState(() => typeof window !== 'undefined' ? window.innerHeight : 900);
 
       // Compute Y-axis range synchronously — no animation RAF, no forceRender
       const logMinRef = useRef(null);
@@ -406,10 +422,18 @@
         return () => ro.disconnect();
       }, []);
 
+      useEffect(() => {
+        const upd = () => setViewportH(window.innerHeight);
+        window.addEventListener('resize', upd);
+        return () => window.removeEventListener('resize', upd);
+      }, []);
+
       // Layout — mobile-responsive
       const isMobile = containerW < 640;
       const W = isMobile ? 500 : 900;
-      const H = isMobile ? 460 : 500;
+      // On desktop, shrink chart height on short viewports so result bar stays above fold.
+      // 340px accounts for navbar + header/controls + result bar. Cap at 500, floor at 320.
+      const H = isMobile ? 460 : Math.min(500, Math.max(320, viewportH - 340));
       const labelW = isMobile ? 56 : 72;
       const plotL = 5 + labelW;
       const plotR = W - (isMobile ? 38 : 20);
@@ -516,10 +540,10 @@
         return Math.round(v / mag) * mag;
       };
 
-      // Snap growth rate to nearest arc label if within ~1% of it
+      // Snap growth rate to nearest whole monthly % point (1%, 2%, 3%…) within 0.3%
       const snapToRate = rawG => {
-        const nearest = monthlyRates.reduce((a, b) => Math.abs(b - rawG) < Math.abs(a - rawG) ? b : a);
-        return Math.abs(nearest - rawG) < 0.012 ? nearest : rawG;
+        const rounded = Math.round(rawG * 100) / 100;
+        return Math.abs(rounded - rawG) < 0.003 ? rounded : rawG;
       };
 
       // Drag handlers — Trevor's exact logic, throttled to one state update per rAF
@@ -529,6 +553,8 @@
           dragging.current = which;
           const svgEl = svgRef.current;
           const clamp = f => Math.max(200, Math.min(f, 1e9));
+          const startClientY = e.touches ? e.touches[0].clientY : e.clientY;
+          const startGrowth = growth;
           let rafId = null, pendingCx = 0, pendingCy = 0;
           const flush = () => {
             rafId = null;
@@ -540,12 +566,9 @@
             } else if (dragging.current === 'exp') {
               onExp(snapMoney(clamp(convYToFlow(sy))));
             } else if (dragging.current === 'growth') {
-              const dragMonth = convXToMonth(sx);
-              if (dragMonth > 0.5) {
-                const dragRev = clamp(convYToFlow(sy));
-                const rawG = Math.exp(Math.log(dragRev / rev0) / dragMonth) - 1;
-                onGrowth(Math.max(0, Math.min(snapToRate(rawG), 0.70)));
-              }
+              const deltaY = pendingCy - startClientY;
+              const rawG = startGrowth - deltaY * 0.002;
+              onGrowth(Math.max(0.01, Math.min(snapToRate(rawG), 0.70)));
             }
           };
           const onMove = ev => {
